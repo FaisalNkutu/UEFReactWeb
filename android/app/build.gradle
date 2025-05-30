@@ -1,28 +1,26 @@
 apply plugin: 'com.android.application'
-apply plugin: 'com.facebook.react'
 
 android {
+    namespace "com.nkutu.uefreactapp"  // ✅ Make sure this matches your package
+
     compileSdkVersion 33
-     namespace "com.nkutu.uefreactapp"  // 👈 Add this line
 
     defaultConfig {
-        applicationId "com.nkutu.uefreactapp"
+        applicationId "com.nkutu.uefreactapp"  // ✅ Same as namespace
         minSdkVersion 21
         targetSdkVersion 33
-        versionCode 11
+        versionCode 13
         versionName "1.0.0"
     }
 
     buildTypes {
         release {
             minifyEnabled false
-            proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
 }
 
 dependencies {
     implementation fileTree(dir: "libs", include: ["*.jar"])
-    implementation "com.facebook.react:react-android"
-    // Add other dependencies if Expo or other modules require them
 }
