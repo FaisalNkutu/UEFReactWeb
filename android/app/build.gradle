@@ -3,6 +3,7 @@ apply plugin: 'com.facebook.react'
 
 android {
     compileSdkVersion 33
+     namespace "com.nkutu.uefreactapp"  // 👈 Add this line
 
     defaultConfig {
         applicationId "com.nkutu.uefreactapp"
