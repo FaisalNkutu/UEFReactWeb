@@ -3,28 +3,46 @@
     "name": "UEFReactApp",
     "slug": "uefreactapp",
     "version": "1.0.0",
-    "platforms": [
-      "ios",
-      "android",
-      "web"
-    ],
-    "web": {
-      "bundler": "webpack"
+    "orientation": "portrait",
+    "platforms": ["ios", "android", "web"],
+    "icon": "./assets/icon.png",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
     },
-    "assetBundlePatterns": [
-      "**/*"
-    ],
     "updates": {
       "fallbackToCacheTimeout": 0
     },
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "bundleIdentifier": "com.nkutu.uefreactapp",
+      "supportsTablet": true
+    },
+    "android": {
+      "package": "com.nkutu.uefreactapp",
+      "versionCode": 2
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "compileSdkVersion": 34,
+            "targetSdkVersion": 34,
+            "buildToolsVersion": "34.0.0",
+            "kotlinVersion": "1.9.10"
+          }
+        }
+      ]
+    ],
     "extra": {
       "eas": {
         "projectId": "6ca07b73-e99f-4963-b5de-648f984f0f5f"
       }
-    },
-    "owner": "nkutu",
-    "android": {
-      "package": "com.nkutu.uefreactapp"
     }
   }
 }

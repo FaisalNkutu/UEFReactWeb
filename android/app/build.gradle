@@ -51,4 +51,5 @@ project.ext.react = [
     enableHermes: true
 ]
 
-apply from: file("../node_modules/react-native/react.gradle")
+def reactNativePath = rootProject.file("../node_modules/react-native")
+apply from: new File(reactNativePath, "react.gradle")
