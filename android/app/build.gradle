@@ -1,26 +1,54 @@
 apply plugin: 'com.android.application'
+apply plugin: 'com.facebook.react'
+apply plugin: 'kotlin-android'
+
+def projectRoot = rootDir.getAbsoluteFile().getAbsolutePath()
+def reactNativeRoot = new File(projectRoot, "../node_modules/react-native")
 
 android {
-    namespace "com.nkutu.uefreactapp"  // ✅ Make sure this matches your package
-
-    compileSdkVersion 33
+    namespace "com.nkutu.uefreactapp" // Required for Gradle 7+
+    compileSdkVersion rootProject.ext.compileSdkVersion
 
     defaultConfig {
-        applicationId "com.nkutu.uefreactapp"  // ✅ Same as namespace
-        minSdkVersion 21
-        targetSdkVersion 33
-        versionCode 13
-        versionName "1.0.0"
+        applicationId "com.nkutu.uefreactapp"
+        minSdkVersion rootProject.ext.minSdkVersion
+        targetSdkVersion rootProject.ext.targetSdkVersion
+        versionCode 1
+        versionName "1.0"
+
+        multiDexEnabled true
     }
 
     buildTypes {
-        release {
-            minifyEnabled false
-            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        debug {
+            debuggable true
         }
+        release {
+            shrinkResources false
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
+        }
+    }
+
+    packagingOptions {
+        pickFirst '**/libc++_shared.so'
     }
 }
 
 dependencies {
     implementation fileTree(dir: "libs", include: ["*.jar"])
+    implementation 'com.facebook.react:react-android'
+    implementation 'androidx.swiperefreshlayout:swiperefreshlayout:1.1.0'
+    implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlinVersion"
+
+    // Expo dependencies
+    implementation 'expo.modules:core:49.0.0'
+    implementation 'expo.modules.kotlin:expo-modules-core:1.0.0' // Match expo version if needed
 }
+
+// Required for react-native CLI to locate the React Native source
+project.ext.react = [
+    enableHermes: true
+]
+
+apply from: file("../node_modules/react-native/react.gradle")
