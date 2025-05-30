@@ -1,0 +1,25 @@
+# Ignore everything outside this project
+
+# System and temp folders
+AppData/
+**/AppData/
+Temp/
+**/Temp/
+Downloads/
+**/Downloads/
+*.tmp
+*.trc
+*.trm
+*.log
+npm-debug.log
+
+# Ignore any other random OS files
+*.DS_Store
+Thumbs.db
+*.ldb
+
+# Node and Expo build output
+node_modules/
+.expo/
+build/
+dist/

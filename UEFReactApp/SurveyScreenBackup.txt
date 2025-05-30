@@ -1,0 +1,172 @@
+import React, { useEffect, useState } from 'react';
+import ViewResponsesScreen from './screens/ViewResponsesScreen';
+import {
+  View, Text, TextInput, Button, ScrollView,
+  TouchableOpacity, Alert, StyleSheet
+} from 'react-native';
+import { Picker } from '@react-native-picker/picker';
+
+export default function SurveyScreen() {
+  const userId = 1; // ✅ Hardcoded for testing
+
+  const [questions, setQuestions] = useState([]);
+  const [responses, setResponses] = useState({});
+
+  useEffect(() => {
+    console.log("✅ SurveyScreen loaded");
+
+    fetch('http://192.168.91.1:8085/api/feedback/questions')
+      .then(res => {
+        console.log("📥 Fetched response status:", res.status);
+        return res.json();
+      })
+      .then(data => {
+        console.log("📦 Questions from API:", data);
+        setQuestions(Array.isArray(data.content) ? data.content : []);
+      })
+      .catch(err => {
+        console.error("❌ Fetch error:", err);
+        Alert.alert("Error", "Failed to load questions.");
+      });
+  }, []);
+
+  const handleChange = (questionId, value) => {
+    setResponses(prev => ({ ...prev, [questionId]: value }));
+  };
+
+  const handleSubmit = async () => {
+    if (Object.keys(responses).length < questions.length) {
+      Alert.alert('Incomplete', 'Please answer all questions.');
+      return;
+    }
+
+    try {
+      const payload = Object.entries(responses).map(([qid, answer]) => ({
+        questionId: parseInt(qid),
+        answer
+      }));
+
+      console.log(`🔗 Submitting to: /submit?userId=${userId}`);
+      console.log("📤 Payload:", JSON.stringify(payload, null, 2));
+
+      const res = await fetch(`http://192.168.91.1:8085/api/feedback/submit?userId=${userId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (res.ok) {
+        Alert.alert('Success', 'Responses submitted!');
+      } else {
+        const errorText = await res.text();
+        console.error("❌ Submission failed:", errorText);
+        Alert.alert('Error', 'Failed to submit responses.');
+      }
+    } catch (err) {
+      console.error("❌ Submission error:", err);
+      Alert.alert('Error', 'Submission error.');
+    }
+  };
+
+  return (
+    <ScrollView contentContainerStyle={styles.container}>
+      <Text style={styles.title}>Feedback Survey</Text>
+
+      {questions.length === 0 ? (
+        <Text style={{ textAlign: 'center', marginTop: 20 }}>No questions available.</Text>
+      ) : (
+        questions.map(q => (
+          <View key={q.id} style={styles.questionBlock}>
+            <Text style={styles.label}>{q.questiontext}</Text>
+
+            {q.questiontype === 'text' && (
+              <TextInput
+                style={styles.input}
+                value={responses[q.id] || ''}
+                placeholder="Type your answer"
+                onChangeText={(val) => handleChange(q.id, val)}
+              />
+            )}
+
+            {q.questiontype === 'multichoice' && (
+              <View style={styles.input}>
+                <Picker
+                  selectedValue={responses[q.id] || ''}
+                  onValueChange={(val) => handleChange(q.id, val)}
+                >
+                  <Picker.Item label="Select an option" value="" />
+                  {q.presentation.split('|').map(opt => (
+                    <Picker.Item label={opt} value={opt} key={opt} />
+                  ))}
+                </Picker>
+              </View>
+            )}
+
+            {q.questiontype === 'numeric' && (
+              <View style={styles.radioGroup}>
+                {q.presentation.split('|').map(num => (
+                  <TouchableOpacity
+                    key={num}
+                    style={styles.radioOption}
+                    onPress={() => handleChange(q.id, num)}
+                  >
+                    <View style={[
+                      styles.radioCircle,
+                      responses[q.id] === num && styles.selected
+                    ]} />
+                    <Text>{num}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+          </View>
+        ))
+      )}
+
+<View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 20 }}>
+  <View style={[styles.buttonWrapper, { flex: 1, marginRight: 5 }]}>
+    <Button
+      title="Submit Responses"
+      onPress={handleSubmit}
+      color="#006bae"
+    />
+  </View>
+  <View style={[styles.buttonWrapper, { flex: 1, marginLeft: 5 }]}>
+    <Button
+      title="View Responses"
+      onPress={() => navigation.navigate('ViewResponsesScreen')}
+      color="#006bae"
+    />
+  </View>
+</View>
+  
+    </ScrollView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { padding: 20, backgroundColor: '#f5f5f5' },
+  title: { fontSize: 22, color: '#006bae', textAlign: 'center', marginBottom: 20 },
+  questionBlock: { marginBottom: 20 },
+  label: { fontWeight: 'bold', marginBottom: 5 },
+  input: {
+    borderWidth: 1, borderColor: '#ccc', borderRadius: 4,
+    paddingHorizontal: 10, paddingVertical: 8, backgroundColor: '#fff'
+  },
+  radioGroup: { flexDirection: 'row', flexWrap: 'wrap', marginTop: 10 },
+  radioOption: {
+    flexDirection: 'row', alignItems: 'center',
+    marginRight: 15, marginBottom: 10
+  },
+  radioCircle: {
+    width: 16, height: 16, borderRadius: 8, borderWidth: 2,
+    borderColor: '#006bae', marginRight: 5
+  },
+  selected: {
+    backgroundColor: '#006bae'
+  },
+  buttonWrapper: {
+    marginTop: 30,
+    alignItems: 'center'
+  }
+});

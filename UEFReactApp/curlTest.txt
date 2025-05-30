@@ -1,0 +1,1 @@
+curl -X POST http://192.168.91.1:8085/api/feedback/submit?userId=1 -H "Content-Type: application/json" -d '[{"questionId":1,"answer":"Yes"}]'
