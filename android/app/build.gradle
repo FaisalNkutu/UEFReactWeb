@@ -6,16 +6,15 @@ def projectRoot = rootDir.getAbsoluteFile().getAbsolutePath()
 def reactNativeRoot = new File(projectRoot, "../node_modules/react-native")
 
 android {
-    namespace "com.nkutu.uefreactapp" // Required for Gradle 7+
-    compileSdkVersion rootProject.ext.compileSdkVersion
+    namespace "com.nkutu.uefreactapp"
+    compileSdkVersion 34 // <-- Direct value to fix missing ext.compileSdkVersion
 
     defaultConfig {
         applicationId "com.nkutu.uefreactapp"
-        minSdkVersion rootProject.ext.minSdkVersion
-        targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
-
+        minSdkVersion 23 // <-- Recommended minimum for SDK 49
+        targetSdkVersion 34
+        versionCode 2
+        versionName "1.0.0"
         multiDexEnabled true
     }
 
@@ -33,23 +32,37 @@ android {
     packagingOptions {
         pickFirst '**/libc++_shared.so'
     }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_11
+        targetCompatibility JavaVersion.VERSION_11
+    }
+
+    kotlinOptions {
+        jvmTarget = "11"
+    }
 }
 
 dependencies {
     implementation fileTree(dir: "libs", include: ["*.jar"])
     implementation 'com.facebook.react:react-android'
     implementation 'androidx.swiperefreshlayout:swiperefreshlayout:1.1.0'
-    implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlinVersion"
+    implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.9.10"
 
-    // Expo dependencies
+    // Expo Modules
     implementation 'expo.modules:core:49.0.0'
-    implementation 'expo.modules.kotlin:expo-modules-core:1.0.0' // Match expo version if needed
+    implementation 'expo.modules.kotlin:expo-modules-core:1.0.0'
 }
 
-// Required for react-native CLI to locate the React Native source
+// React Native config
 project.ext.react = [
     enableHermes: true
 ]
 
 def reactNativePath = rootProject.file("../node_modules/react-native")
-apply from: new File(reactNativePath, "react.gradle")
+def reactGradle = new File(reactNativePath, "react.gradle")
+if (reactGradle.exists()) {
+    apply from: reactGradle
+} else {
+    println("⚠️ react.gradle not found. Skipping apply.")
+}

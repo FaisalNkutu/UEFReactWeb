@@ -22,7 +22,7 @@
   "devDependencies": {
     "@babel/core": "^7.20.0",
     "@expo/metro-config": "0.9.0",
-    "@react-native-community/cli": "^18.0.0",
+    "@react-native-community/cli": "^12.0.1",
     "babel-preset-expo": "^9.6.0",
     "metro": "0.76.6"
   },

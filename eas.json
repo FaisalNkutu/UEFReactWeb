@@ -1,6 +1,6 @@
 {
   "cli": {
-    "version": ">= 16.6.2",
+    "version": ">= 6.3.0", // latest stable CLI recommended
     "appVersionSource": "remote"
   },
   "build": {
@@ -14,8 +14,7 @@
     "production": {
       "autoIncrement": true,
       "env": {
-        "NODE_ENV": "production",
-        "EXPO_ANDROID_COMPILE_SDK_VERSION": "33"
+        "NODE_ENV": "production"
       }
     }
   },
