@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform, View, Text, TextInput, Button, Alert, StyleSheet, Image, TouchableOpacity, ScrollView } from 'react-native';
-const BASE_URL = 'http://192.168.2.12:8087';
+
 export default function LoginScreen({ navigation, onLogin }) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');

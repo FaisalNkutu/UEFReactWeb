@@ -14,11 +14,11 @@ export default function DashboardScreen({ navigation, route }) {
         {user.role === 'student' && (
           <>
             <TouchableOpacity onPress={() => navigation.navigate('Survey', { user })}>
-              <Text style={styles.menuItem}>📝 Take Surveymmmmm</Text>
+              <Text style={styles.menuItem}>📝 Take Survey</Text>
             </TouchableOpacity>
 
             <TouchableOpacity onPress={() => navigation.navigate('ViewResponses', { user })}>
-              <Text style={styles.menuItem}>📊 View Responsesmmmm</Text>
+              <Text style={styles.menuItem}>📊 View Responses</Text>
             </TouchableOpacity>
           </>
         )}

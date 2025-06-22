@@ -11,7 +11,7 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
-
+const BASE_URL = 'http://192.168.2.12:8087';
 export default function RegisterScreen({ navigation }) {
   const [form, setForm] = useState({
     firstName: '',
@@ -40,7 +40,7 @@ export default function RegisterScreen({ navigation }) {
   }
 
   try {
-    const response = await fetch('http://192.168.91.1:8085/register', {
+    const response = await fetch('${BASE_URL}/register', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',

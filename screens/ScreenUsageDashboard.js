@@ -5,7 +5,7 @@ import {
   exportLogsAsCSV,
   exportLogsAsJson
 } from '../utils/screenLogUtils';
-
+const BASE_URL = 'http://192.168.2.12:8087';
 export default function ScreenUsageDashboard({ route, navigation, onLogout }) {
   const userId = route.params?.userId;
   const [logs, setLogs] = useState([]);
@@ -13,7 +13,7 @@ export default function ScreenUsageDashboard({ route, navigation, onLogout }) {
 
   useEffect(() => {
     if (userId) {
-      fetch(`http://192.168.91.1:8085/api/screen-logs/${userId}`)
+      fetch(`${BASE_URL}/api/screen-logs/${userId}`)
         .then(res => res.json())
         .then(data => {
           if (!Array.isArray(data)) {

@@ -5,7 +5,7 @@ import {
 } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import { CommonActions } from '@react-navigation/native'; // ✅ Needed for logout
-
+const BASE_URL = 'http://192.168.2.12:8087';
 export default function CreateSurveyQuestionScreen({ navigation, onLogout }) {
   const [questiontext, setQuestionText] = useState('');
   const [questiontype, setQuestionType] = useState('text');
@@ -18,7 +18,7 @@ export default function CreateSurveyQuestionScreen({ navigation, onLogout }) {
     }
 
     try {
-      const res = await fetch('http://192.168.91.1:8085/saveQuestion', {
+      const res = await fetch('${BASE_URL}/saveQuestion', {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: `questiontext=${encodeURIComponent(questiontext)}&questiontype=${encodeURIComponent(questiontype)}&presentation=${encodeURIComponent(presentation)}`

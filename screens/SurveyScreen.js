@@ -6,7 +6,7 @@ import {
 import Slider from '@react-native-community/slider';
 import { Picker } from '@react-native-picker/picker';
 // import AsyncStorage from '@react-native-async-storage/async-storage'; // Uncomment if you're using token/session storage
-
+const BASE_URL = 'http://192.168.2.12:8087';
 export default function SurveyScreen({ route, navigation, onLogout }) {
   const user = route?.params?.user ?? null;
   const userId = user?.id ?? null;
@@ -28,7 +28,7 @@ export default function SurveyScreen({ route, navigation, onLogout }) {
   }, []);
 
   useEffect(() => {
-    fetch('http://192.168.91.1:8085/api/feedback/questions')
+    fetch('${BASE_URL}/api/feedback/questions')
       .then(res => res.json())
       .then(data => {
         if (Array.isArray(data.content)) {
@@ -71,7 +71,7 @@ export default function SurveyScreen({ route, navigation, onLogout }) {
     }
 
     try {
-      const res = await fetch(`http://192.168.91.1:8085/api/feedback/submit?userId=${userId}`, {
+      const res = await fetch(`${BASE_URL}/api/feedback/submit?userId=${userId}`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json"

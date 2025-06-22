@@ -7,7 +7,7 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ReactNativeDeviceActivity from 'react-native-device-activity';
-
+const BASE_URL = 'http://192.168.2.12:8087';
 // 🟩 Combined DeviceActivityPicker + ScreenTimeTracker Logic
 let lastScreen = null;
 let lastTime = null;
@@ -45,7 +45,7 @@ const ScreenTracker = ({ navigation, state, userId }) => {
       }
 
       try {
-        await fetch(`http://192.168.91.1:8085/api/screen-logs/${userId}`, {
+        await fetch(`${BASE_URL}/api/screen-logs/${userId}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(logEntry),
