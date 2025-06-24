@@ -1,0 +1,42 @@
+workflows:
+  uefreactapp_ios_release:
+    name: Build and Upload iOS App to App Store
+    max_build_duration: 60
+    environment:
+      flutter: false
+      node: 18.20.2
+      xcode: latest
+      cocoapods: default
+      vars:
+        EAS_PROJECT_ID: 6ca07b73-e99f-4963-b5de-648f984f0f5f
+        APP_STORE_CONNECT_ISSUER_ID: Encrypted(env://APP_STORE_CONNECT_ISSUER_ID)
+        APP_STORE_CONNECT_KEY_IDENTIFIER: Encrypted(env://APP_STORE_CONNECT_KEY_IDENTIFIER)
+        APP_STORE_CONNECT_PRIVATE_KEY: Encrypted(env://APP_STORE_CONNECT_PRIVATE_KEY)
+        BUNDLE_ID: com.nkutu.uefreactapp
+        APPLE_EMAIL: faisal_nkutu@hotmail.com
+    scripts:
+      - name: 📦 Install Expo & EAS CLI
+        script: |
+          npm install -g expo-cli eas-cli
+          npm install
+      - name: 🏗️ Build iOS .ipa with EAS
+        script: |
+          eas build --platform ios --non-interactive --profile production
+      - name: 🔑 Decode Apple API Key
+        script: |
+          echo $APP_STORE_CONNECT_PRIVATE_KEY | base64 --decode > ./AuthKey.p8
+      - name: 🚀 Upload to App Store Connect via Fastlane
+        script: |
+          gem install fastlane
+          fastlane deliver \
+            --ipa "$(find . -name '*.ipa')" \
+            --app_identifier "$BUNDLE_ID" \
+            --username "$APPLE_EMAIL" \
+            --api_key_path ./AuthKey.p8 \
+            --api_key_id "$APP_STORE_CONNECT_KEY_IDENTIFIER" \
+            --api_key_issuer_id "$APP_STORE_CONNECT_ISSUER_ID" \
+            --skip_metadata true \
+            --skip_screenshots true \
+            --force
+    artifacts:
+      - "**/*.ipa"
