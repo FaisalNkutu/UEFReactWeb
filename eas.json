@@ -16,7 +16,10 @@
   "submit": {
     "production": {
       "ios": {
-        "appleId": "faisal_nkutu@hotmail.com"
+        "appleId": "faisal_nkutu@hotmail.com",
+        "workflow": "managed",
+        "buildType": "release",
+        "distribution": "app-store"
       }
     }
   }

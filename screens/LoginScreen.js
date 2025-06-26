@@ -26,7 +26,7 @@ export default function LoginScreen({ navigation, onLogin }) {
     }
 
     try {
-      const res = await fetch('http://192.168.2.12:8085/api/login', {
+      const res = await fetch('${BASE_URL}/api/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
