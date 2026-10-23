@@ -1,0 +1,680 @@
+package com.calian.aicore.clientagent;
+
+import com.calian.aicore.AIConstants;
+import com.calian.aicore.clientagent.LLM.LLMMessage;
+import com.calian.aicore.clientagent.LLM.LLMSelectionResponse;
+import com.calian.aicore.clientagent.LLM.LLMService;
+import com.calian.aicore.ui.ClientBoard;
+import com.calian.aicoredata.*;
+import com.calian.aicoredata.datatype.*;
+import com.calian.common.lib.log.Log;
+import com.calian.common.lib.util.WorkerThread;
+import com.calian.rabbitmq.comms.BTO;
+import com.calian.rabbitmq.comms.DataTransferObject;
+import com.calian.rabbitmq.comms.ErrorMessage;
+import org.a2aproject.sdk.client.config.ClientConfig;
+import org.a2aproject.sdk.spec.*;
+import org.slf4j.Logger;
+
+import java.util.*;
+import java.util.concurrent.*;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
+public class ClientAgent extends WorkerThread {
+    public static Logger jL = Log.getLogger(ClientAgent.class);
+    public UUID jClientID = null;
+    private boolean jPersistData = false;
+    private IResponseListener jResponseListener = null;
+    //agent name to url
+    private final ConcurrentHashMap<String, String> jAgentURLHashmap;
+    private final ConcurrentHashMap<UUID, DataTransferObject> jActiveRequests = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<UUID, ArrayList<CACommandObject>> jPendingCommands = new ConcurrentHashMap<>();
+    private final ExecutorService jCommandExecutor = Executors.newSingleThreadExecutor();
+    private final LinkedBlockingQueue<CACommandObject> jCommandQueue = new LinkedBlockingQueue<>(1000);
+    private final ConcurrentHashMap<String, List<String>> jCommandToAgentList;
+    private final ArrayList<AgentCard> jAvailableAgents;
+
+    private final ExecutorService jLLMExecutor = Executors.newSingleThreadExecutor();
+    private final LinkedBlockingQueue<UserRequest> jLLMQueue = new LinkedBlockingQueue<>(1000);
+    private final ConcurrentHashMap<String, ConcurrentHashMap<String, List<String>>> jCommandDependency;
+
+    LLMService jLLMService;
+    private final Semaphore jCommandSemaphore = new Semaphore(10, true);
+    private ClientConfig jClientConfig;
+    HashMap<UUID, UserRequest> jHistory = new HashMap<>();
+    public final ClientBoard jClientMetricsBoard;
+
+
+    public ClientAgent(
+            UUID clientID,
+            IResponseListener listener,
+            ConcurrentHashMap<String, ConcurrentHashMap<String, List<String>>> commandDepMap,
+            ConcurrentHashMap<String, List<String>> commandMap,
+            ConcurrentHashMap<String, String> urlMap,
+            ArrayList<AgentCard> availableAgents,
+            LLMService llmService,
+            ClientBoard cb) {
+
+        //TODO: WHAT DO WE PASS IN HERE
+        super(clientID.toString());
+        jClientID = clientID;
+        //this constructor is only called if there is a client id which means it is a registered user - persist data
+        jPersistData = true;
+        jResponseListener = listener;
+        jCommandDependency = commandDepMap;
+        jCommandToAgentList = commandMap;
+        jAgentURLHashmap = urlMap;
+        jAvailableAgents = availableAgents;
+        jLLMService = llmService;
+        jClientMetricsBoard = cb;
+        initCA();
+    }
+
+    public ClientAgent(IResponseListener listener,
+                       ConcurrentHashMap<String, ConcurrentHashMap<String, List<String>>> commandDepMap,
+                       ConcurrentHashMap<String, List<String>> commandMap,
+                       ConcurrentHashMap<String, String> urlMap,
+                       ArrayList<AgentCard> availableAgents,
+                       LLMService llmService,
+                       ClientBoard cb) {
+        //TODO: WHAT DO WE PASS IN HERE
+        super("");
+        jResponseListener = listener;
+        jCommandDependency = commandDepMap;
+        jCommandToAgentList = commandMap;
+        jAgentURLHashmap = urlMap;
+        jAvailableAgents = availableAgents;
+        jLLMService = llmService;
+        jClientMetricsBoard = cb;
+        initCA();
+    }
+
+    /**
+     * Method running on jCommandExecutor thread. It takes from the jCommandQueue and starts a Command Thread to process
+     * each one. If there are dependencies, it will add to pending commands for later processing.
+     */
+    private void processCommandQueueLoop() {
+        while (true) {
+            try {
+                //block until something arrives
+                CACommandObject co = jCommandQueue.take();
+                //First, we need to check if we have agent tasks to complete - there needs to be agent tasks by this point
+                if (!co.getAgentTasks().isEmpty()) {
+                    //check dependencies
+                    if (co.getDependencies().isEmpty()) {
+                        jL.debug("Acquiring semaphore - available permits before acquiring: {}", jCommandSemaphore.availablePermits());
+                        jCommandSemaphore.acquire();
+                        jL.debug("Semaphore acquired - available permits after acquiring: {}", jCommandSemaphore.availablePermits());
+                        CommandThread ct = new CommandThread(co.getRequestID().toString(), this);
+                        ct.begin();
+                        ct.addTask(co);
+                    } else {
+                        ArrayList<CACommandObject> list = jPendingCommands.get(co.getRequestID());
+                        if (list == null) {
+                            jPendingCommands.put(co.getRequestID(), new ArrayList<>(List.of(co)));
+                        } else {
+                            list.add(co);
+                        }
+                    }
+                } else {
+                    //this means we probably had an error somewhere since there are no agent tasks to complete
+                    if (co.getFinalResponse().isEmpty()) {
+                        ErrorDataObject edo = new ErrorDataObject(
+                                "Error occurred while processing command - could not complete command",
+                                null,
+                                co.getCommand());
+                        co.addFinalResponse(edo);
+                    }
+                    //an error has occurred - send it back to client agent thread so it can be sent back to user
+                    addTask(co);
+                }
+
+            } catch (Exception e) {
+                jL.debug("Command Loop terminated {}", e.getMessage() == null ? "" : e.getMessage());
+            }
+        }
+    }
+
+    /**
+     * Called to queue a CACommandObject for processing.
+     *
+     * @param co - command object that needs to be processed.
+     */
+    private void queueCommandObject(CACommandObject co) throws InterruptedException {
+        jCommandQueue.put(co);
+    }
+
+
+    private void initCA() {
+        //TODO: set up cache/memory things based on config? Connect to LLM?
+        jCommandExecutor.submit(this::processCommandQueueLoop);
+        jLLMExecutor.submit(this::processLLMQueueLoop);
+        loadClientConfig();
+
+    }
+
+    private void processLLMQueueLoop() {
+
+        while (true) {
+            try {
+                //block until something arrives
+                UserRequest ur = jLLMQueue.take();
+                generateAgentTasks(ur);
+
+            } catch (Exception e) {
+                jL.debug("LLM Loop terminated {}", e.getMessage() == null ? "" : e.getMessage());
+            }
+        }
+    }
+
+    private void generateAgentTasks(UserRequest ur) {
+
+        List<CACommandObject> reqList = new ArrayList<>();
+        for (CommandObject co : ur.getCommands()) {
+            CACommandObject aco = new CACommandObject(co, ur.getRequestID());
+            reqList.add(aco);
+        }
+
+        Queue<CACommandObject> queue = new LinkedList<>(reqList);
+
+
+        List<String> requestCommandsList = reqList.stream()
+                .map(CACommandObject::getCommand)
+                .toList();
+
+
+        while (!queue.isEmpty()) {
+
+            CACommandObject co = queue.poll();
+
+            boolean skipQueue = false;
+            boolean useLLM = false;
+
+            HashMap<String, AgentTask> inputAgentTaskList = new HashMap<>();
+            ArrayList<AgentTask> dependencyTaskList = new ArrayList<>();
+
+            Map<String, List<String>> commDepList = jCommandDependency.get(co.getCommand());
+
+            //this is the last agent task
+            AgentTask at = new AgentTask();
+            String agent = co.getPreferredAgent();
+            if (agent == null || !jCommandToAgentList.get(co.getCommand()).contains(agent)) {
+                agent = jCommandToAgentList.get(co.getCommand()).getFirst();
+            }
+            if (agent != null) {
+                at.setAgent(agent);
+                at.addURL(jAgentURLHashmap.get(agent));
+            }
+            if (co.getSchema() != null) {
+                at.setSchema(co.getSchema());
+            }
+
+            if (co.getDataObjects() != null && !co.getDataObjects().isEmpty()) {
+                for (AIObject dto : co.getDataObjects()) {
+                    List<String> depList;
+                    String input;
+                    switch (dto.getDataType()) {
+                        case TEXT -> {
+                            depList = commDepList.get(AIConstants.TEXT);
+                            input = AIConstants.TEXT;
+                        }
+                        case AUDIO -> {
+                            depList = commDepList.get(AIConstants.AUDIO);
+                            input = AIConstants.AUDIO;
+                        }
+                        case IMAGE -> {
+                            depList = commDepList.get(AIConstants.IMAGE);
+                            input = AIConstants.IMAGE;
+                        }
+                        case null, default -> {
+                            jL.error("Data type not supported!");
+                            ErrorDataObject edo = new ErrorDataObject("Data type not supported!", dto, co.getCommand());
+                            co.addFinalResponse(edo);
+                            continue;
+                        }
+                    }
+
+                    if (inputAgentTaskList.containsKey(input)) {
+                        //this means we have multiple data objects for the same agent task - clone the task and add
+                        //the new data object
+                        //we need a new UUID so make a new one and set fields
+                        AgentTask task = inputAgentTaskList.get(input);
+                        AgentTask clone = new AgentTask();
+                        clone.setURL(task.getURL());
+                        clone.setAgent(task.getAgent());
+                        clone.setDataObject(new ArrayList<>(List.of(dto)));
+                        clone.setSchema(task.getSchema());
+                        //add it to list to get added to the command object later
+                        dependencyTaskList.add(clone);
+
+
+                    } else {
+                        //means we haven't seen this data type yet - check dependencies
+                        if (depList != null && !depList.isEmpty()) {
+
+                            ArrayList<UUID> taskIDDependencyList = new ArrayList<>();
+                            for (String depComm : depList) {
+                                //first, check if we have this dependency in the request
+                                if (requestCommandsList.contains(depComm)) {
+                                    co.addDependency(depComm, at.getTaskID());
+                                } else {
+                                    //we do not have this dependency in the request - add agent task separately
+                                    //TODO:::There is a recursion that has to be dealt with here - a chain of dependencies
+                                    // this depComm could also be dependent on another command which is dependent on another command ect...
+                                    // FOR NOW::We are assuming that we will need at most one task for each dependency
+                                    // We are also assuming an ordered list
+                                    AgentTask depAT = new AgentTask();
+                                    String depAgent = co.getPreferredAgent();
+                                    if (depAgent == null || !jCommandToAgentList.get(depComm).contains(depAgent)) {
+                                        depAgent = jCommandToAgentList.get(depComm).getFirst();
+                                    }
+                                    depAT.setAgent(depAgent);
+                                    depAT.addURL(jAgentURLHashmap.get(depAgent));
+                                    //TODO:: NOTE ADDING THE DTO DOES NOT WORK IF depList.size() > 1!!!
+                                    depAT.addDataObject(dto);
+                                    taskIDDependencyList.add(depAT.getTaskID());
+                                    //add it to the list to be added to the co later
+                                    dependencyTaskList.add(depAT);
+                                }
+                            }
+                            //add any dependencies to the last agent task
+                            taskIDDependencyList.forEach(at::addDependency);
+                            inputAgentTaskList.put(input, at);
+                        } else {
+                            //means we have no dependencies
+                            at.addDataObject(dto);
+                            inputAgentTaskList.put(input, at);
+                        }
+                    }
+
+                }
+            } else {
+                //this command object has no data objects
+
+
+                //make a list of all possible command dependencies for this command
+                List<String> allValues = commDepList.values()
+                        .stream()
+                        .flatMap(List::stream)
+                        .toList();
+
+                boolean checkDataObjects = true;
+                if (!allValues.isEmpty()) {
+                    //means this command has at least one possible dependency
+
+                    for (String dep : allValues) {
+                        if (requestCommandsList.contains(dep)) {
+                            //means we have one of the dependencies in this UR - add it to this command
+                            co.addDependency(dep, at.getTaskID());
+                            dependencyTaskList.add(at);
+                            checkDataObjects = false;
+                            break;
+                        }
+                    }
+
+                }
+                if (checkDataObjects) {
+                    jL.info("No data objects found and no dependencies - check for valid objects elsewhere...");
+                    //means that none of the dependencies were on this UR and we also don't have a data object
+                    //maybe there's an object on one of the other commands?
+                    List<AIObject> objects = checkForDTOs(reqList);
+                    if (!objects.isEmpty()) {
+                        //just add these to the command object and requeue it
+                        AgentCard agentCard = null;
+                        for (AgentCard ac : jAvailableAgents) {
+                            if (ac.name().equals(at.getAgent())) {
+                                agentCard = ac;
+                            }
+                        }
+                        List<String> listObj = jLLMService.isValidDataObject(objects, agentCard);
+                        if (listObj != null && !listObj.isEmpty()) {
+                            objects.forEach(obj -> {
+                                if (listObj.contains(obj.getObjectUniqueID().toString())) {
+                                    co.addDataObject(obj);
+                                }
+                            });
+                            //queue it back for agent task generation
+                            queue.offer(co);
+                            skipQueue = true;
+                        } else {
+                            jL.warn("Could not process command - could not find valid data objects.");
+                            ErrorDataObject edo = new ErrorDataObject("Could not process command - could not find valid data objects.", null, co.getCommand());
+                            co.addFinalResponse(edo);
+                            continue;
+                        }
+                    } else {
+                        useLLM = true;
+                    }
+                }
+
+            }
+
+            if (useLLM) {
+                HashMap<Integer, String> agentMap = new HashMap<>();
+                for (int i = 0; i < jAvailableAgents.size(); i++) {
+                    agentMap.put(i + 1, jAvailableAgents.get(i).name());
+                }
+                LLMMessage llm = new LLMMessage(co, ur, null, jAvailableAgents, agentMap);
+                LLMSelectionResponse lsr = jLLMService.analyze(llm);
+                if (lsr != null) {
+                    if (lsr.isSuccess()) {
+                        //TODO: This just uses last request sent - do we need to go more in depth?
+                        List<AIObject> objects = jHistory.values().stream().toList().getLast().getCommands().stream()
+                                .map(CommandObject::getDataObjects)
+                                .flatMap(List::stream)
+                                .toList();
+
+                        AgentCard card = jAvailableAgents.stream()
+                                .filter(agentCard -> agentCard.name().equals(lsr.getSelectedAgents().getFirst()))
+                                .findFirst()
+                                .orElse(null);
+
+                        List<String> listObj = jLLMService.isValidDataObject(objects, card);
+                        if (listObj != null && !listObj.isEmpty()) {
+                            objects.forEach(obj -> {
+                                if (listObj.contains(obj.getObjectUniqueID().toString())) {
+                                    co.addDataObject(obj);
+                                }
+                            });
+                            queue.offer(co);
+                            skipQueue = true;
+                        }
+
+                    } else {
+                        jL.warn("Could not process request: {}", lsr.getError());
+                        ErrorDataObject edo = new ErrorDataObject(lsr.getError(), null, co.getCommand());
+                        co.addFinalResponse(edo);
+                        continue;
+                    }
+                }
+
+            }
+
+            //add all agent tasks to the command object
+            List<AgentTask> mergedTasks = Stream.concat(inputAgentTaskList.values().stream(), dependencyTaskList.stream())
+                    .collect(Collectors.toCollection(ArrayList::new));
+            mergedTasks.forEach(co::addTask);
+
+            if (!skipQueue) {
+                //queue object for processing
+                try {
+                    queueCommandObject(co);
+                } catch (InterruptedException e) {
+                    jL.error("Could not queue command object: {}", e.getMessage());
+                    ErrorDataObject edo = new ErrorDataObject(e.getMessage(), null, co.getCommand());
+                    co.addFinalResponse(edo);
+                    //need this task to return back if it cannot be queued
+                    addTask(co);
+                }
+            }
+
+        }
+
+    }
+
+    private List<AIObject> checkForDTOs(List<CACommandObject> reqList) {
+        List<AIObject> list = new ArrayList<>();
+        for (CACommandObject co : reqList) {
+            if (co.getDataObjects() != null && !co.getDataObjects().isEmpty()) {
+                list.addAll(co.getDataObjects());
+            }
+        }
+        return list;
+    }
+
+    private void loadClientConfig() {
+        jClientConfig = new ClientConfig.Builder()
+                .setAcceptedOutputModes(List.of(AIConstants.TEXT, AIConstants.AUDIO, AIConstants.IMAGE))
+                .build();
+    }
+
+    public ClientConfig getClientConfig() {
+        return jClientConfig;
+    }
+
+    @Override
+    protected void initialize() {
+    }
+
+    @Override
+    protected void doPendingWork(Object o) {
+
+
+        if (o instanceof DataTransferObject dto) {
+
+            updateRequestInMetrics();
+
+            //New UserRequest
+            BTO bto = dto.getMessage();
+            if (bto instanceof UserRequest ur) {
+                updateClientLog("New request received!", ur.getRequestID().toString());
+                jActiveRequests.put(ur.getRequestID(), dto);
+                try {
+                    jLLMQueue.put(ur);
+                } catch (InterruptedException e) {
+                    String errorString = "Error adding to LLM Queue: " + e.getMessage();
+                    updateFailedMetrics(errorString, ur.getRequestID().toString(), true);
+                    ErrorMessage em = new ErrorMessage(ur, e.getMessage());
+                    dto.setMessage(em);
+                    try {
+                        jResponseListener.onResponse(dto);
+                    } catch (InterruptedException er) {
+                        String error = "Could not process UserRequest! " + er.getMessage();
+                        jL.error(error);
+                        updateClientLog(error, ur.getRequestID().toString());
+                    }
+                }
+            } else if (bto instanceof GetCommandsRequest gcr) {
+                gcr.setCommandData(new HashMap<>(jCommandToAgentList));
+                //gcr.setAgentURLs(new HashMap<> (jAgentURLHashmap));
+                try {
+                    updateRequestOutMetrics("GetCommandsRequest received! Returning completed request...", null);
+                    jResponseListener.onResponse(dto);
+                } catch (InterruptedException e) {
+                    String errorString = "Could not send GetCommandsRequest! " + e.getMessage();
+                    updateFailedMetrics(errorString, null, false);
+                }
+            }
+        } else if (o instanceof CACommandObject co) {
+            //command has been processed and completed
+            DataTransferObject dto = jActiveRequests.get(co.getRequestID());
+            if (dto != null) {
+                //if we get here, the command thread is done so release the semaphore
+                jL.debug("Releasing semaphore - available permits before release: {}", jCommandSemaphore.availablePermits());
+                jCommandSemaphore.release();
+                jL.debug("Semaphore released - available permits after release: {}", jCommandSemaphore.availablePermits());
+                processCommandObjectResponse(co, dto);
+            }
+        }
+    }
+
+    public void updateClientLog(String msg, String reqID) {
+        if (jClientID != null) {
+            jClientMetricsBoard.log(jClientID.toString(), msg, reqID);
+        }
+    }
+
+    private void updateFailedMetrics(String msg, String reqID, boolean recordOut) {
+        if (jClientID != null) {
+            jClientMetricsBoard.requestFailed(jClientID.toString(), recordOut);
+            jL.error(msg);
+            updateClientLog(msg, reqID);
+        }
+    }
+
+    public void updateTaskFailedMetrics(String msg, String reqID) {
+        if (jClientID != null) {
+            jClientMetricsBoard.taskFailed(jClientID.toString());
+            jL.error(msg);
+            updateClientLog(msg, reqID);
+        }
+    }
+
+    public void updateTaskCompletedMetrics(String msg, String reqID) {
+        if (jClientID != null) {
+            jClientMetricsBoard.taskCompleted(jClientID.toString());
+            updateClientLog(msg, reqID);
+        }
+    }
+
+    private void updateRequestInMetrics() {
+        if (jClientID == null) {
+            jClientMetricsBoard.recordUnregisteredRequest();
+        } else {
+            jClientMetricsBoard.requestIn(jClientID.toString());
+        }
+    }
+
+    private void updateRequestOutMetrics(String msg, String reqID) {
+        if (jClientID != null) {
+            jClientMetricsBoard.requestCompleted(jClientID.toString());
+            updateClientLog(msg, reqID);
+        }
+    }
+
+
+    /***
+     * This method is called when a command has been completed by a CommandThread. Add response to the
+     * request/send back to user.
+     * @param co - command that was completed
+     * @param dto - original request to send back
+     */
+    private void processCommandObjectResponse(CACommandObject co, DataTransferObject dto) {
+        try {
+            UserRequest ur = (UserRequest) dto.getMessage();
+            ur.addResponse(co.getCommand(), co.getFinalResponse());
+            checkMarkComplete(ur);
+            checkUpdateDependents(co);
+            if (ur.sendOneResponse()) {
+                if (ur.isComplete()) {
+                    //only send if complete
+                    jResponseListener.onResponse(dto.clone());
+                }
+            } else {
+                DataTransferObject dtoClone = dto.clone();
+                UserRequest urClone = (UserRequest) dtoClone.getMessage();
+                //overwrite responses as we are sending only the response for this command
+                urClone.setResponses(new HashMap<>(Map.of(co.getCommand(), co.getFinalResponse())));
+                updateClientLog("Command completed: " + co.getCommand(), ur.getRequestID().toString());
+                jResponseListener.onResponse(dtoClone);
+            }
+            if (ur.isComplete()) {
+                //check of all response objects are errors
+                checkForFailures(ur);
+                updateRequestOutMetrics("Request processed - Sending back to client...", ur.getRequestID().toString());
+                jActiveRequests.remove(ur.getRequestID());
+                if (jPersistData) {
+                    jHistory.put(ur.getRequestID(), ur);
+                }
+            }
+        } catch (ClassCastException e) {
+            String error = "Could not cast BTO to a UserRequest: " + e.getMessage();
+            updateFailedMetrics(error, null, false);
+
+        } catch (InterruptedException e) {
+            String error = "Error sending response: " + e.getMessage();
+            updateFailedMetrics(error, null, false);
+        }
+
+
+    }
+
+    /**
+     *
+     * If all responses are error objects, fail the whole request
+     */
+    private void checkForFailures(UserRequest ur) {
+        int errors = 0;
+        int responses = 0;
+        for (List<? extends BTO> list : ur.getResponses().values()) {
+            for (BTO item : list) {
+                responses++;
+                if (item instanceof ErrorDataObject) {
+                    errors++;
+                }
+            }
+        }
+        if (responses == errors) {
+            updateFailedMetrics("All returned responses are error objects - request failed.", ur.getRequestID().toString(), false);
+        }
+    }
+
+    /**
+     * This method check for any dependents on a completed command, updates those dependents with the results from this
+     * command and re-queues them for processing.
+     *
+     * @param completedCO
+     * @throws InterruptedException
+     */
+    private void checkUpdateDependents(CACommandObject completedCO) throws InterruptedException {
+        ArrayList<CACommandObject> requestDependents = jPendingCommands.get(completedCO.getRequestID());
+        if (requestDependents == null) {
+            return;
+        }
+        List<CACommandObject> toRemove = new ArrayList<>();
+        for (CACommandObject pendDep : requestDependents) {
+            if (pendDep.getDependencies().containsKey(completedCO.getCommand())) {
+                //if we get here, the command that was completed was a dependency of a pending command
+                //grab the agent task that needs the response from this object
+                //need to remove the dependency as it has been fulfilled (this is checked later on processing loop)
+                AgentTask t = pendDep.getTask(pendDep.getDependencies().remove(completedCO.getCommand()));
+                if (t != null) {
+                    //set the data object
+                    t.setDataObject(completedCO.getFinalResponse());
+                }
+                //need to remove this from the pending commands after this loop
+                toRemove.add(pendDep);
+                //requeue the object to be processed
+                queueCommandObject(pendDep);
+            }
+        }
+        for (CACommandObject remove : toRemove) {
+            requestDependents.remove(remove);
+        }
+    }
+
+    /***
+     * Check if the user request is completed (all commands have been processed).
+     * @param ur
+     */
+    private void checkMarkComplete(UserRequest ur) {
+        //if the response list has the same number of responses as commands, then all commands have been processed and
+        //request is complete
+        //TODO:: THIS NEEDS TESTING - ARE WE ALWAYS RETURNING SOMETHING FOR EVERY COMMAND/DATA OBJECT?
+        boolean completePartOne = ur.getResponses().size() == ur.getCommands().size();
+        boolean competePartTwo = true;
+        if (completePartOne) {
+            for (String key : ur.getResponses().keySet()) {
+                CommandObject command = null;
+                for (CommandObject co : ur.getCommands()) {
+                    if (co.getCommand().equals(key)) {
+                        command = co;
+                        break;
+                    }
+                }
+                if (command != null) {
+                    if (ur.getResponses().get(key).size() < command.getDataObjects().size()) {
+                        competePartTwo = false;
+                    }
+                }
+                if (!competePartTwo) {
+                    break;
+                }
+            }
+        }
+        ur.setComplete((completePartOne && competePartTwo));
+    }
+
+    @Override
+    protected void terminate() {
+        jCommandExecutor.shutdownNow();
+        jLLMExecutor.shutdownNow();
+    }
+
+    public void updateAvailableAgents(AgentCard ac) {
+        jAvailableAgents.add(ac);
+    }
+
+
+}
