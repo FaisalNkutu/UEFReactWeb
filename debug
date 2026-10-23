@@ -1,1 +1,49 @@
 Get-ChildItem -Recurse -File | Where-Object { $_.Name -match 'Paradigm|Bridge|Publisher' } | Select-Object FullName
+
+
+public Map<String, String> getConfiguredAgentRegistry() {
+    if (jClientAgentHandler == null) {
+        return Collections.emptyMap();
+    }
+
+    return jClientAgentHandler.getAllConfiguredAgents();
+}
+
+
+
+
+
+package com.calian.aicore;
+
+import io.micronaut.http.annotation.Controller;
+import io.micronaut.http.annotation.Get;
+import io.micronaut.http.HttpResponse;
+
+import java.util.Map;
+import java.util.LinkedHashMap;
+
+@Controller("/api/ai-core")
+public class AiCoreAgentController {
+
+    private final AiCoreService aiCoreService;
+
+    public AiCoreAgentController(AiCoreService aiCoreService) {
+        this.aiCoreService = aiCoreService;
+    }
+
+    @Get("/agents")
+    public HttpResponse<Map<String, Object>> getAgents() {
+
+        Map<String, String> agents =
+                aiCoreService.getConfiguredAgentRegistry();
+
+        Map<String, Object> response =
+                new LinkedHashMap<>();
+
+        response.put("source", "calian-ai-core");
+        response.put("count", agents.size());
+        response.put("agents", agents);
+
+        return HttpResponse.ok(response);
+    }
+}
