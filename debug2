@@ -1,0 +1,98 @@
+cd C:\dev - Copy\ai-core\aicore; "JAVA_HOME=C:\\Program Files\\Eclipse Adoptium\\jdk-21.0.10.7-hotspot" M2_HOME=C:\\Users\\f.nkutu\\sf-ci-tools\\maven cmd /c "\"C:\\Users\\f.nkutu\\sf-ci-tools\\maven\\bin\\mvn.cmd\" -Dexec.vmArgs= \"-Dexec.args=${exec.vmArgs} -classpath %classpath ${exec.mainClass} ${exec.appArgs}\" -Dexec.appArgs= -Dexec.mainClass=${packageClassName} \"-Dexec.executable=C:\\Program Files\\Eclipse Adoptium\\jdk-21.0.10.7-hotspot\\bin\\java.exe\" -DskipTests=true \"-Dmaven.ext.class.path=C:\\Program Files\\NetBeans-19\\netbeans\\java\\maven-nblib\\netbeans-eventspy.jar\" --no-transfer-progress process-classes org.codehaus.mojo:exec-maven-plugin:3.1.0:exec"
+Scanning for projects...
+
+------------------------< com.calian:aicoreapp >------------------------
+Building AI Core App 1.0.0-SNAPSHOT
+  from pom.xml
+--------------------------------[ jar ]---------------------------------
+
+--- git-commit-id:9.0.2:revision (get-the-git-infos) @ aicoreapp ---
+
+--- enforcer:3.5.0:enforce (enforce-sf-build-standards) @ aicoreapp ---
+Rule 0: org.codehaus.mojo.extraenforcer.dependencies.BanCircularDependencies passed
+Rule 1: org.apache.maven.enforcer.rules.BanDuplicatePomDependencyVersions passed
+Rule 2: org.apache.maven.enforcer.rules.version.RequireMavenVersion passed
+Rule 3: org.apache.maven.enforcer.rules.version.RequireJavaVersion passed
+Rule 4: org.apache.maven.enforcer.rules.RequireJavaVendor passed
+Rule 5: org.apache.maven.enforcer.rules.BanDistributionManagement passed
+Rule 6: org.apache.maven.enforcer.rules.RequireNoRepositories passed
+Rule 7: org.apache.maven.enforcer.rules.BannedPlugins passed
+
+--- enforcer:3.5.0:enforce (enforce-sf-package-standards) @ aicoreapp ---
+Rule 0: org.codehaus.mojo.extraenforcer.dependencies.BanCircularDependencies passed
+Rule 1: org.apache.maven.enforcer.rules.BanDuplicatePomDependencyVersions passed
+Rule 2: org.apache.maven.enforcer.rules.version.RequireMavenVersion passed
+Rule 3: org.apache.maven.enforcer.rules.RequireJavaVendor passed
+Rule 4: org.apache.maven.enforcer.rules.BanDistributionManagement passed
+Rule 5: org.apache.maven.enforcer.rules.RequireNoRepositories passed
+Rule 6: org.apache.maven.enforcer.rules.BannedPlugins passed
+
+--- artifactory:3.7.0:publish (attach-properties) @ aicoreapp ---
+
+--- git-commit-id:9.0.2:revision (write-git-commit-properties-to-file) @ aicoreapp ---
+
+--- git-commit-id:9.0.2:revision (write-all-git-properties-to-file) @ aicoreapp ---
+
+--- build-helper:3.6.0:parse-version (parse-version) @ aicoreapp ---
+
+--- build-helper:3.6.0:timestamp-property (set-date-for-application-version) @ aicoreapp ---
+
+--- remote-resources:3.3.0:process (process-license-resource) @ aicoreapp ---
+Preparing remote bundle com.simfront.ott.license:ott_v1:1.0
+Copying 1 resource from 1 bundle.
+
+--- resources:3.3.1:resources (default-resources) @ aicoreapp ---
+Copying 7 resources from src\main\resources to target\classes
+Copying 1 resource from target\maven-shared-archive-resources to target\classes
+
+--- compiler:3.14.0:compile (default-compile) @ aicoreapp ---
+Nothing to compile - all classes are up to date.
+
+--- exec:3.1.0:exec (default-cli) @ aicoreapp ---
+Error: Could not find or load main class ${packageClassName}
+Caused by: java.lang.ClassNotFoundException: ${packageClassName}
+Command execution failed.
+org.apache.commons.exec.ExecuteException: Process exited with an error: 1 (Exit value: 1)
+    at org.apache.commons.exec.DefaultExecutor.executeInternal (DefaultExecutor.java:404)
+    at org.apache.commons.exec.DefaultExecutor.execute (DefaultExecutor.java:166)
+    at org.codehaus.mojo.exec.ExecMojo.executeCommandLine (ExecMojo.java:1000)
+    at org.codehaus.mojo.exec.ExecMojo.executeCommandLine (ExecMojo.java:947)
+    at org.codehaus.mojo.exec.ExecMojo.execute (ExecMojo.java:471)
+    at org.apache.maven.plugin.DefaultBuildPluginManager.executeMojo (DefaultBuildPluginManager.java:126)
+    at org.apache.maven.lifecycle.internal.MojoExecutor.doExecute2 (MojoExecutor.java:328)
+    at org.apache.maven.lifecycle.internal.MojoExecutor.doExecute (MojoExecutor.java:316)
+    at org.apache.maven.lifecycle.internal.MojoExecutor.execute (MojoExecutor.java:212)
+    at org.apache.maven.lifecycle.internal.MojoExecutor.execute (MojoExecutor.java:174)
+    at org.apache.maven.lifecycle.internal.MojoExecutor.access$000 (MojoExecutor.java:75)
+    at org.apache.maven.lifecycle.internal.MojoExecutor$1.run (MojoExecutor.java:162)
+    at org.apache.maven.plugin.DefaultMojosExecutionStrategy.execute (DefaultMojosExecutionStrategy.java:39)
+    at org.apache.maven.lifecycle.internal.MojoExecutor.execute (MojoExecutor.java:159)
+    at org.apache.maven.lifecycle.internal.LifecycleModuleBuilder.buildProject (LifecycleModuleBuilder.java:105)
+    at org.apache.maven.lifecycle.internal.LifecycleModuleBuilder.buildProject (LifecycleModuleBuilder.java:73)
+    at org.apache.maven.lifecycle.internal.builder.singlethreaded.SingleThreadedBuilder.build (SingleThreadedBuilder.java:53)
+    at org.apache.maven.lifecycle.internal.LifecycleStarter.execute (LifecycleStarter.java:118)
+    at org.apache.maven.DefaultMaven.doExecute (DefaultMaven.java:261)
+    at org.apache.maven.DefaultMaven.doExecute (DefaultMaven.java:173)
+    at org.apache.maven.DefaultMaven.execute (DefaultMaven.java:101)
+    at org.apache.maven.cli.MavenCli.execute (MavenCli.java:919)
+    at org.apache.maven.cli.MavenCli.doMain (MavenCli.java:285)
+    at org.apache.maven.cli.MavenCli.main (MavenCli.java:207)
+    at jdk.internal.reflect.DirectMethodHandleAccessor.invoke (DirectMethodHandleAccessor.java:103)
+    at java.lang.reflect.Method.invoke (Method.java:580)
+    at org.codehaus.plexus.classworlds.launcher.Launcher.launchEnhanced (Launcher.java:255)
+    at org.codehaus.plexus.classworlds.launcher.Launcher.launch (Launcher.java:201)
+    at org.codehaus.plexus.classworlds.launcher.Launcher.mainWithExitCode (Launcher.java:362)
+    at org.codehaus.plexus.classworlds.launcher.Launcher.main (Launcher.java:314)
+------------------------------------------------------------------------
+BUILD FAILURE
+------------------------------------------------------------------------
+Total time:  16.059 s
+Finished at: 2026-10-23T12:49:05-04:00
+------------------------------------------------------------------------
+Failed to execute goal org.codehaus.mojo:exec-maven-plugin:3.1.0:exec (default-cli) on project aicoreapp: Command execution failed.: Process exited with an error: 1 (Exit value: 1) -> [Help 1]
+
+To see the full stack trace of the errors, re-run Maven with the -e switch.
+Re-run Maven using the -X switch to enable full debug logging.
+
+For more information about the errors and possible solutions, please read the following articles:
+[Help 1] http://cwiki.apache.org/confluence/display/MAVEN/MojoExecutionException
