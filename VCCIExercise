@@ -1,0 +1,206 @@
+/*
+ * Copyright 2025 Operational and Training Technology, Calian Learning
+ *                   All rights reserved.
+ */
+
+package com.simfront.vcci.ui.dashboard;
+
+import com.calian.paradigm.core.components.MasterOMAdaptor;
+import com.calian.paradigm.core.components.OMAdaptor;
+import com.calian.paradigm.core.bto.requests.readreq.GetConnectionTypesRequest;
+import com.calian.paradigm.core.bto.requests.readreq.GetContextTreeNodeRequest;
+import com.calian.paradigm.core.bto.requests.readreq.GetFoldersRequest;
+import com.calian.paradigm.core.bto.requests.readreq.GetSystemCapabilitysRequest;
+import com.calian.paradigm.core.bto.requests.readreq.GetNetworkAdaptorsRequest;
+import com.calian.paradigm.core.bto.BTO;
+import com.calian.paradigm.core.bto.model.FeatureRequestResponse;
+import com.calian.paradigm.core.bto.model.ui.DisplayableMessage;
+import com.calian.paradigm.core.controller.Controller;
+import com.calian.paradigm.service.mediationservice.MediationService;
+import com.calian.paradigm.core.bto.requests.readreq.GetDataFlowSpecificationsRequest;
+import com.calian.paradigm.core.bto.requests.readreq.GetObjectItemsRequest;
+import com.calian.paradigm.core.bto.requests.readreq.GetObjectTypesRequest;
+import com.calian.paradigm.ui.framework.framework.IFRREnabled;
+import com.calian.paradigm.ui.framework.framework.ParadigmSwingUIDirector;
+import com.calian.paradigm.ui.sts.dashboard.STSExercise;
+import com.calian.paradigm.ui.framework.UIExercise;
+
+/**
+ *
+ * @author rhans
+ */
+public class VCCIExercise extends STSExercise implements IFRREnabled {
+
+    public static String FILENAME_DELIMITER = "_";
+    public static String BLANK = " ";
+
+
+    public VCCIExercise(UIExercise ex) {
+        super(ex.getBrokerKey());
+    }
+
+    public void sendExerciseLoadDataRequests() {
+        // Called from dashboard
+        if (!VCCIDashBoard.ref().isAar()) {
+            // Get external systems/connection types/supported functions
+            GetSystemCapabilitysRequest funcReq = new GetSystemCapabilitysRequest(false);
+            funcReq.setHighPriority(true);
+            //System.err.println(">>>>>>>>>>>>>>>>>> GET FUNCTIONS REQUEST BEING SENT ...");
+
+            ParadigmSwingUIDirector.jUIDirector.issueFeatureRequest(this,
+                    jBrokerKey,
+                    VCCIExercise.class.getCanonicalName(),
+                    MediationService.class.getCanonicalName(),
+                    MediationService.READ_FUNCTIONS, funcReq, true);
+
+            GetConnectionTypesRequest request = new GetConnectionTypesRequest(true, true);
+            request.setHighPriority(true);
+            //System.err.println(">>>>>>>>>>>>>>>>>> GET CONNECTION TYPES REQUEST BEING SENT ...");
+            ParadigmSwingUIDirector.jUIDirector.issueFeatureRequest(this,
+                    jBrokerKey,
+                    VCCIExercise.class.getCanonicalName(),
+                    MediationService.class.getCanonicalName(),
+                    MediationService.READ_CONNECTION_TYPES, request, true);
+
+            // Get folders/connections (if any)
+            GetFoldersRequest gfr = new GetFoldersRequest(true, true);
+            gfr.setHighPriority(true);
+            //System.err.println(">>>>>>>>>>>>>>>>>> GET FOLDERS REQUEST BEING SENT ...");
+            ParadigmSwingUIDirector.jUIDirector.issueFeatureRequest(this,
+                    jBrokerKey,
+                    VCCIExercise.class.getCanonicalName(),
+                    MediationService.class.getCanonicalName(),
+                    MediationService.READ_FOLDERS, gfr, true);
+
+            // Get dataflows (if any)
+            GetDataFlowSpecificationsRequest gdfr = new GetDataFlowSpecificationsRequest(true, true, true);
+            gdfr.setHighPriority(true);
+            //System.err.println(">>>>>>>>>>>>>>>>>> GET DATAFLOWS REQUEST BEING SENT ...");
+            ParadigmSwingUIDirector.jUIDirector.issueFeatureRequest(this,
+                    jBrokerKey,
+                    VCCIExercise.class.getCanonicalName(),
+                    MediationService.class.getCanonicalName(),
+                    MediationService.READ_DATA_FLOW_SPECIFICATIONS, gdfr, true);
+
+            //System.err.println(">>>>>>>>>>>>>>>>>> GET CONTEXT TREE NODE REQUEST BEING SENT ...");
+            // Get Context Information
+            GetContextTreeNodeRequest req = new GetContextTreeNodeRequest();
+            req.setHighPriority(true);
+            ParadigmSwingUIDirector.jUIDirector.issueFeatureRequest(this,
+                    jBrokerKey,
+                    VCCIExercise.class.getCanonicalName(),
+                    MasterOMAdaptor.class.getCanonicalName(),
+                    OMAdaptor.READ_CONTEXT_TREE_NODE, req, true);
+            // Get NetworkAdaptors Information
+            GetNetworkAdaptorsRequest netAdapReq = new GetNetworkAdaptorsRequest();
+            netAdapReq.setHighPriority(true);
+            //System.err.println(">>>>>>>>>>>>>>>>>> GET FUNCTIONS REQUEST BEING SENT ...");
+            ParadigmSwingUIDirector.jUIDirector.issueFeatureRequest(this,
+                    jBrokerKey,
+                    VCCIExercise.class.getCanonicalName(),
+                    MasterOMAdaptor.class.getCanonicalName(),
+                    MasterOMAdaptor.READ_NETWORKS_ADAPTORS, netAdapReq, true);
+
+            GetObjectItemsRequest oir = new GetObjectItemsRequest(
+                    true, true, true, true, true, true, true, true, false, false);
+            oir.setIncludeContextInformation(true);
+            oir.setIncludeContextOIInformation(true);
+            ParadigmSwingUIDirector.jUIDirector.issueFeatureRequest(this,
+                    jBrokerKey,
+                    VCCIExercise.class.getCanonicalName(),
+                    MasterOMAdaptor.class.getCanonicalName(),
+                    MasterOMAdaptor.READ_OBJECTITEMS, oir, true);
+
+            GetObjectTypesRequest oit = new GetObjectTypesRequest(
+                    true, true, true, true, false, true);
+            ParadigmSwingUIDirector.jUIDirector.issueFeatureRequest(this,
+                    jBrokerKey,
+                    VCCIExercise.class.getCanonicalName(),
+                    MasterOMAdaptor.class.getCanonicalName(),
+                    MasterOMAdaptor.READ_OBJECTTYPES, oit, true);
+        } else {
+            GetSystemCapabilitysRequest funcReq = new GetSystemCapabilitysRequest(false);
+            ParadigmSwingUIDirector.jUIDirector.issueFeatureRequest(this,
+                    jBrokerKey,
+                    VCCIExercise.class.getCanonicalName(),
+                    MediationService.class.getCanonicalName(),
+                    MediationService.READ_FUNCTIONS, funcReq, true);
+            GetConnectionTypesRequest request = new GetConnectionTypesRequest(true, true);
+            //System.err.println(">>>>>>>>>>>>>>>>>> GET CONNECTION TYPES REQUEST BEING SENT ...");
+            ParadigmSwingUIDirector.jUIDirector.issueFeatureRequest(this,
+                    jBrokerKey,
+                    VCCIExercise.class.getCanonicalName(),
+                    MediationService.class.getCanonicalName(),
+                    MediationService.READ_CONNECTION_TYPES, request, true);
+            GetFoldersRequest gfr = new GetFoldersRequest(false, false);
+            //System.err.println(">>>>>>>>>>>>>>>>>> GET FOLDERS REQUEST BEING SENT ...");
+            ParadigmSwingUIDirector.jUIDirector.issueFeatureRequest(this,
+                    jBrokerKey,
+                    VCCIExercise.class.getCanonicalName(),
+                    MediationService.class.getCanonicalName(),
+                    MediationService.READ_FOLDERS, gfr, true);
+        }
+    }
+
+    @Override
+    public void disconnect() {
+        super.disconnect();
+        setConnected(false);
+    }
+
+    @Override
+    public boolean shutdown(boolean confirmWithUser) {
+        boolean result = super.shutdown(confirmWithUser);
+        return result;
+    }
+
+    @Override
+    public void processResponse(FeatureRequestResponse frr) {
+        if (ParadigmSwingUIDirector.jUIDirector.getUIComponent().processError(frr, false, true)) {
+            String msgStr = String.format("Feature request : %s did not get successfully executed. State : %s", frr.getDstComponentID() + ":" + frr.getComponentFeatureID(), frr.getStateString());
+            generateMessageForUI(msgStr, DisplayableMessage.Type.ERROR);
+            return;
+        }
+        BTO result = frr.getFeatureResult();
+        if (result instanceof GetConnectionTypesRequest) {
+            GetConnectionTypesRequest req = (GetConnectionTypesRequest) result;
+            VCCIDashBoard.ref().setConnectionTypesResponse(req);
+        } else if (result instanceof GetFoldersRequest) {
+            GetFoldersRequest gfr = (GetFoldersRequest) result;
+            VCCIDashBoard.ref().setFoldersResponse(gfr);
+        } else if (result instanceof GetObjectItemsRequest) {
+            GetObjectItemsRequest goir = (GetObjectItemsRequest) result;
+            VCCIDashBoard.ref().setObjectItemsResponse(goir);
+        } else if (result instanceof GetObjectTypesRequest) {
+            GetObjectTypesRequest gotr = (GetObjectTypesRequest) result;
+            VCCIDashBoard.ref().setObjectTypesResponse(gotr);
+        } else if (result instanceof GetDataFlowSpecificationsRequest) {
+            GetDataFlowSpecificationsRequest gdfr = (GetDataFlowSpecificationsRequest) result;
+            VCCIDashBoard.ref().setDataFlowsResponse(gdfr);
+        } else if (result instanceof GetSystemCapabilitysRequest) {
+            GetSystemCapabilitysRequest gfr = (GetSystemCapabilitysRequest) result;
+            VCCIDashBoard.ref().setSystemCapabilitysResponse(gfr);
+        } else if (result instanceof GetNetworkAdaptorsRequest) {
+            GetNetworkAdaptorsRequest gfr = (GetNetworkAdaptorsRequest) result;
+            VCCIDashBoard.ref().setNetworkAdaptorsResponse(gfr);
+        } else if (result instanceof GetContextTreeNodeRequest) {
+            GetContextTreeNodeRequest gctnr = (GetContextTreeNodeRequest) result;
+            VCCIDashBoard.ref().setContextResponse(gctnr);
+        } else if (frr.getComponentFeatureID().equals(Controller.GET_ALL_COMPONENTS)) {
+            super.processResponse(frr);
+        } else {
+            super.processResponse(frr);
+        }
+    }
+
+    public VCCIExercise clone() {
+        // Basic clone method
+        VCCIExercise s = null;
+        if (jBrokerKey != null) {
+            s = new VCCIExercise(new UIExercise(jBrokerKey));
+        } else {
+            s = new VCCIExercise(null);
+        }
+        return s;
+    }
+}
