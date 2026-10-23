@@ -1,0 +1,14 @@
+@Get("/agents")
+public HttpResponse<Map<String, Object>> getAgents() {
+
+    Map<String, String> agentURLs =
+            aiCoreService.getConfiguredAgentRegistry();
+
+    Map<String, Object> response = new LinkedHashMap<>();
+
+    response.put("source", "calian-ai-core");
+    response.put("count", agentURLs.size());
+    response.put("agentURLs", agentURLs);
+
+    return HttpResponse.ok(response);
+}
