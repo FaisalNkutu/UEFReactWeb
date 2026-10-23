@@ -1,0 +1,67 @@
+package com.calian.aicore;
+
+import io.micronaut.http.annotation.Controller;
+import io.micronaut.http.annotation.Get;
+import jakarta.inject.Singleton;
+
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+
+@Singleton
+class ParadigmAgentStore {
+
+    private Map<String, List<String>> commands = Map.of();
+    private Map<String, String> agentURLs = Map.of();
+    private boolean responseReceived = false;
+
+    public synchronized void acceptResponse(
+            Map<String, ? extends List<String>> commandList,
+            Map<String, String> urls) {
+
+        Map<String, List<String>> copied = new LinkedHashMap<>();
+
+        if (commandList != null) {
+            commandList.forEach((key, values) ->
+                copied.put(key, values == null
+                    ? List.of()
+                    : new ArrayList<>(values))
+            );
+        }
+
+        commands = copied;
+        agentURLs = urls == null
+                ? Map.of()
+                : new LinkedHashMap<>(urls);
+
+        responseReceived = true;
+    }
+
+    public synchronized Map<String, Object> snapshot() {
+
+        Map<String, Object> result = new LinkedHashMap<>();
+
+        result.put("source", "paradigm-ai-service");
+        result.put("responseReceived", responseReceived);
+        result.put("commandList", new LinkedHashMap<>(commands));
+        result.put("agentURLs", new LinkedHashMap<>(agentURLs));
+
+        return result;
+    }
+}
+
+@Controller("/api/paradigm")
+public class ParadigmAgentBridge {
+
+    private final ParadigmAgentStore store;
+
+    public ParadigmAgentBridge(ParadigmAgentStore store) {
+        this.store = store;
+    }
+
+    @Get("/agents")
+    public Map<String, Object> getAgents() {
+        return store.snapshot();
+    }
+}
