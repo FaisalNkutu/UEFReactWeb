@@ -1,0 +1,8 @@
+public Map<String, List<String>> getAvailableCommands() {
+
+    if (jCommandToAgentList == null) {
+        return Collections.emptyMap();
+    }
+
+    return new TreeMap<>(jCommandToAgentList);
+}
