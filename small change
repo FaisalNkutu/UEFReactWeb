@@ -1,0 +1,7 @@
+public Map<String, List<String>> getAvailableCommands() {
+    return new HashMap<>(jCommandToAgentList);
+}
+
+public Map<String, String> getAvailableAgentURLs() {
+    return new HashMap<>(jAgentURLHashmap);
+}
