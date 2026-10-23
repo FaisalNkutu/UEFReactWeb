@@ -1,0 +1,1977 @@
+/*
+ * Copyright 2023-2026 Operational and Training Technology, Calian Learning
+ *                   All rights reserved.
+ */
+package com.simfront.vcci.ui.dashboard;
+
+import com.calian.common.lib.db.DBConstants;
+import com.calian.common.lib.gisfactory.IMapDisplay;
+import com.calian.common.lib.gui.data.Loader;
+import com.calian.paradigm.core.bto.model.*;
+import com.calian.paradigm.core.bto.model.dobjs.*;
+import com.calian.paradigm.core.bto.requests.readreq.*;
+import com.calian.paradigm.lib.kml.*;
+import com.calian.paradigm.core.components.MasterOMAdaptor;
+import com.calian.paradigm.core.bto.notifications.remote.ExportKmlRequestNotification;
+import com.calian.paradigm.core.bto.notifications.remote.ImportKmlRequestNotification;
+import com.calian.paradigm.core.bto.notifications.remote.KmlImportedNotification;
+import com.calian.paradigm.core.bto.notifications.remote.KmlExportedNotification;
+import com.calian.common.lib.red.server.REDServer;
+import com.calian.common.lib.system.LocalData;
+import com.calian.paradigm.ui.sts.dashboard.STSExercise;
+import com.calian.paradigm.ui.sts.panels.ISTSPanelCarrierPayload;
+import com.calian.paradigm.ui.sts.panels.STSPanel;
+import com.calian.paradigm.ui.sts.panels.adminview.AdminPanel;
+import com.calian.paradigm.ui.sts.panels.common.PreferenceDialog;
+import com.calian.paradigm.ui.sts.panels.common.SimTimeOffsetDialog;
+import com.calian.paradigm.ui.sts.panels.cursitview.AARExerciseData;
+import com.calian.paradigm.ui.sts.panels.cursitview.CursitQuad;
+import com.calian.paradigm.ui.sts.panels.cursitview.MapDisplayPanel;
+import com.calian.paradigm.ui.sts.panels.cursitview.TacticalGraphicsSettingsRep;
+import com.calian.paradigm.ui.sts.panels.cursitview.*;
+import com.simfront.vcci.ui.metrics.MetricsTimeFormatsDialog;
+import com.calian.paradigm.core.AutoBackup;
+import com.calian.paradigm.core.components.OMAdaptor;
+import com.calian.paradigm.core.bto.model.gobjs.gen.GContext;
+import com.calian.paradigm.core.bto.notifications.ObjectItemCreateNotification;
+import com.calian.paradigm.core.bto.requests.createupdatereq.CreateUpdateDataFlowSpecificationRequest;
+import com.calian.paradigm.core.resources.Constants;
+import com.calian.paradigm.core.bto.BTO;
+import com.calian.paradigm.core.bto.model.ui.DisplayableContent;
+import com.calian.paradigm.core.bto.model.ui.DisplayableMessage;
+import com.calian.paradigm.core.bto.model.ui.DisplayableStatus.Indicator;
+import com.calian.paradigm.core.bto.model.ui.UINotification;
+import com.calian.paradigm.core.controller.Controller;
+import com.calian.common.lib.db.DBConn;
+import com.calian.common.lib.gui.GUIConstants;
+import com.calian.common.lib.gui.framework.IDockable;
+import com.calian.common.lib.gui.framework.IDockableParent;
+import com.calian.common.lib.gui.framework.IFrameworkDialog;
+import com.calian.common.lib.gui.framework.OptionPaneResponse;
+import com.calian.common.lib.gui.framework.OptionsPane;
+import com.calian.common.lib.gui.utils.DoublePanelManager;
+import com.calian.common.lib.gui.utils.GUIUtils;
+import com.calian.common.lib.gui.utils.IDoublePanelManagerUser;
+import com.calian.common.lib.gui.utils.PanelCarrier;
+import com.calian.common.lib.gui.utils.time.IDateTimeFormatListener;
+import com.calian.common.lib.gui.utils.time.IDateTimeFormatProducer;
+import com.calian.common.lib.gisfactory.elements.MilitaryMapElement;
+import com.calian.common.lib.red.REDClient;
+import com.calian.paradigm.service.mediationservice.MediationService;
+import com.calian.paradigm.ui.sts.icons.STSIcons;
+import com.calian.paradigm.ui.sts.dashboard.STSDashBoard;
+import com.calian.paradigm.ui.framework.framework.DashboardUIManager.UIRole;
+import com.calian.paradigm.ui.framework.framework.IFRREnabled;
+import com.calian.paradigm.ui.framework.framework.IUINotificationEnabled;
+import com.calian.paradigm.ui.framework.framework.ParadigmSwingUIDirector;
+import com.calian.paradigm.ui.sts.systemview.SystemView;
+import com.calian.paradigm.ui.sts.systemview.SystemViewCanvas;
+import com.calian.common.lib.util.DateTime;
+import com.calian.common.lib.util.FileUtils;
+import com.calian.common.lib.util.IDDaySettable;
+import com.calian.common.lib.util.printing.PrinterUtil;
+import com.simfront.vcci.VcciMain;
+import com.simfront.vcci.ui.VCCIUIHandlers;
+import com.simfront.vcci.ui.capabilities.AutoBackupDialog;
+import com.calian.paradigm.ui.sts.MappingsXMLRep;
+import com.simfront.vcci.ui.cursit.VCCICursitPanel;
+import com.simfront.vcci.ui.cursit.VCCICursitQuad;
+import com.calian.paradigm.ui.framework.ExerciseManager;
+import com.calian.paradigm.ui.framework.framework.DashboardUIManager;
+import com.calian.paradigm.ui.framework.framework.UIAudit;
+import com.calian.paradigm.ui.sts.panels.cursitview.IconHolder;
+import com.simfront.vcci.AutoTestConfig;
+import com.simfront.vcci.VCCIConstants;
+import com.simfront.vcci.ui.dashboard.base.control.VToolBarControl;
+import com.simfront.vcci.ui.dashboard.sysdiagram.VCCISystemViewCanvas;
+import com.simfront.vcci.ui.mapping.export.MappingImportDialog;
+import com.simfront.vcci.ui.mapping.export.MappingImportDialog.IMappingImportDialogUser;
+import com.simfront.vccibase.IVCCIUIControlObject;
+import com.simfront.vccibase.MappingsReportGenerator;
+import com.simfront.vccibase.manager.Manager;
+import com.calian.paradigm.core.DataBank;
+import com.calian.paradigm.core.bto.notifications.ConnectionTypeNotification;
+import com.calian.paradigm.ui.framework.tlsconfig.TLSDefaultConfigurationDialog;
+
+import java.awt.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.awt.event.MouseEvent;
+import java.awt.print.PrinterException;
+import java.io.*;
+import java.net.InetAddress;
+import java.net.URL;
+import java.net.UnknownHostException;
+import java.nio.file.Path;
+import java.util.*;
+import java.util.List;
+import javax.swing.*;
+
+/**
+ * @author rhans
+ */
+public class VCCIDashBoard extends STSDashBoard
+        implements IDoublePanelManagerUser,
+        IFRREnabled,
+        IDockableParent,
+        IDateTimeFormatProducer,
+        IDDaySettable,
+        IMappingImportDialogUser,
+        KMLImportListener,
+        KMLExportListener,
+        IUINotificationEnabled {
+
+    // Variable used for performance measurements only
+    public static long _CUMULATIVE = 0;
+
+    // Allocated only to get the static block called - reference not used
+    private final VCCIUIHandlers jUIHandlers = new VCCIUIHandlers();
+    private final VCCIConstants jConstants = new VCCIConstants();
+    public static VCCIDashBoard jVCCIDashBoard = null;
+    public static ExerciseManager jExerciseManager;
+    VCCIExercisesSelectDialog jExerciseSelectDialog = null;
+    // This will either be a Connection/DataFlow creation panel or a Level 2 Panel
+    // (When it is none of these, it will be the CURSIT)
+    STSPanel jCurrentDynamicPanel = null;
+
+    VCCIDashBoardContentPanel jDashBoardContentPanel = new VCCIDashBoardContentPanel();
+    public VCCIDashboardUIManager jVCCIDashboardUIManager = new VCCIDashboardUIManager();
+    // Various requests
+    GetFoldersRequest jGetFoldersRequest = null;
+    GetDataFlowSpecificationsRequest jGetDataFlowsRequest = null;
+    GetSystemCapabilitysRequest jGetSystemCapabilitysRequest = null;
+    GetConnectionTypesRequest jGetConnectionTypesRequest = null;
+    GetContextTreeNodeRequest jGetContextRequest = null;
+    GetObjectItemsRequest jGetObjectItemsRequest = null;
+    GetObjectTypesRequest jGetObjectTypesRequest = null;
+
+    public static LinkedHashMap<String, REDClient> jVCCIRedClients = new LinkedHashMap<>();
+    public static final String HELP_FILE = "doc/UserGuide/UserGuide.htm";
+    public static String VCCI = "VCCI";
+    public static String ARAMIS = "Aramis";
+    private UIRole jUIRole = UIRole.UNKNOWN;
+    public static boolean jStartedLocalExercise = false;
+    public static String jLocalServerName = "";
+    public static boolean jByPassConfirm = false;
+    SimTimeOffsetDialog jSimTimeOffsetDialog = null;
+    MetricsTimeFormatsDialog jMetricsTimeFormatsDialog = null;
+    TLSDefaultConfigurationDialog jTLSDefaultConfigurationDialog = null;
+    private boolean jMakeBigger = false;
+    protected boolean jExerciseLoadInProgress = false;
+
+    DoublePanelManager jLeftSidePanelsManager = new DoublePanelManager(
+            this,
+            JSplitPane.HORIZONTAL_SPLIT,
+            false, false, false, true, true, false);
+
+    VCCIStatusBar jStatusBar = null;
+    private final VToolBarControl jToolBarControl = new VToolBarControl();
+
+    VCCIControlPanel jVCCIControlPanel = new VCCIControlPanel();
+    VCCICursitQuad jVCCICursitQuad = null;
+    VCCICursitPanel jVCCICursitPanel;
+    private boolean jMappingImportDialogActive = false;
+    private MappingsXMLRep jXMLRep = null;
+    private Object jMappingsImportObject = null;
+    private GetMappedObjectCandidatesRequest jItemsRequest = null;
+    private GetMappedObjectCandidatesRequest jTypesRequest = null;
+
+    private TrayIcon jTrayIcon = null;
+
+    // Set up carriers
+    PanelCarrier jAddFolderPanelCarrier = new PanelCarrier(jLeftSidePanelsManager, null, false,
+            false, false);
+    PanelCarrier jVCCIControlPanelCarrier = new PanelCarrier(jLeftSidePanelsManager,
+            jVCCIControlPanel, true, true, false);
+    //PanelCarrier jDynamicCarrier = new PanelCarrier(jDashBoardContentPanel.getCURSITTabPanel(), null);
+    //PanelCarrier jExistingExercisePanelCarrier = new PanelCarrier(jRightSidePanelsManager, null);
+    boolean jSplitPaneActive = true;
+
+    private ImportKmlRequestNotification jPendingImportKmlRequestNotification = null;
+    private ExportKmlRequestNotification jPendingExportKmlRequestNotification = null;
+
+    public VCCIDashBoard(UIRole role) {
+        super(VCCI,
+                VCCIIcons.jVCCIIcon.getImage(),
+                VCCIDashBoard.jRemoteConnectMode,
+                true);
+
+        jUIRole = role;
+        jVCCIDashBoard = this;
+        new DataBank();
+        // This needs to be first
+        if (jRemoteConnectMode) {
+            jVCCIRedClients = getRemoteIPAddresses();
+        }
+        jExerciseManager = new ExerciseManager();
+        if (VCCIDashBoard.jRemoteConnectMode) {
+            activateServerMonitoring();
+        }
+
+        // So we can keep our cache of contexts
+        ParadigmSwingUIDirector.jUIDirector.subscribeToObjectNotification(this, GContext.class);
+
+        // To detect invalid network adaptors in DB
+        ParadigmSwingUIDirector.jUIDirector.subscribeToObjectNotification(this, InvalidNetworkAdaptorsCarrier.class);
+
+        // To update the data bank
+        ParadigmSwingUIDirector.jUIDirector.subscribeToObjectNotification(this, ObjectItemCreateNotification.class);
+        ParadigmSwingUIDirector.jUIDirector.subscribeToObjectNotification(this, DMetricsTimeFormats.class);
+
+        getContentAreaForDerivedClass().add(jDashBoardContentPanel, BorderLayout.CENTER);
+        setName("vcciDashBoardFrame");
+        maybeEnableUIInteractionLogging();
+        createTrayIcon();
+        this.toFront();
+    }
+
+    private void createTrayIcon() {
+        if (!SystemTray.isSupported()) {
+            jL.warn("System tray is not supported!");
+            return;
+        }
+        SystemTray systemTray = SystemTray.getSystemTray();
+        Image image = Toolkit.getDefaultToolkit().getImage(
+                VcciMain.class.getResource("vccinew.png"));
+        //popupmenu
+        PopupMenu trayPopupMenu = new PopupMenu();
+        // About
+        MenuItem aboutMenuItem = new MenuItem("About VCCI");
+        aboutMenuItem.addActionListener(e -> {
+            this.showAboutBox();
+        });
+        trayPopupMenu.add(aboutMenuItem);
+        // Logs
+        MenuItem logMenuItem = new MenuItem("Open Logs");
+        logMenuItem.addActionListener(e -> {
+            try {
+                Path p = FileUtils.getLatestFileInFolder(LocalData.getLocalDataFolder("vcci", "logs"));
+                if (p == null) {
+                    throw new FileNotFoundException("Unable to locate VCCI log file");
+                } else {
+                    File file = p.toFile();
+                    if (file.exists()) {
+                        Desktop.getDesktop().open(file);
+                    }
+                }
+            } catch (Exception ex) {
+                jL.error("Failed to open log file.");
+                JOptionPane.showMessageDialog(
+                        this,
+                        "Could not locate log file.",
+                        "Error",
+                        JOptionPane.ERROR_MESSAGE);
+            }
+        });
+        trayPopupMenu.add(logMenuItem);
+        // Shutdown
+        MenuItem closeMenuItem = new MenuItem("Shutdown VCCI");
+        closeMenuItem.addActionListener(e -> {
+            VCCIDashBoard.onExit();
+        });
+        trayPopupMenu.add(closeMenuItem);
+        //setting tray icon
+        jTrayIcon = new TrayIcon(image, "VCCI", trayPopupMenu);
+        //adjust to default size as per system recommendation
+        jTrayIcon.setImageAutoSize(true);
+        try {
+            systemTray.add(jTrayIcon);
+        } catch (AWTException ex) {
+            jL.error(ex.getMessage(), ex);
+        }
+    }
+
+    public void sendTrayIconMessage(String message, TrayIcon.MessageType messageType) {
+        jL.info(message);
+        if (jTrayIcon != null) {
+            jTrayIcon.displayMessage("VCCI", message, messageType);
+        }
+    }
+
+    private void maybeEnableUIInteractionLogging() {
+        try {
+            Toolkit.getDefaultToolkit().addAWTEventListener(event -> {
+                if (event instanceof MouseEvent) {
+                    MouseEvent evt = (MouseEvent) event;
+                    if (evt.isAltDown() && evt.getID() == MouseEvent.MOUSE_ENTERED) {
+                        if (evt.getComponent() != null && evt.getComponent().getName() != null) {
+                            jL.info("{} {}", evt.getComponent().getName(),
+                                    evt.getLocationOnScreen().toString());
+                        }
+                    }
+                }
+            }, AWTEvent.MOUSE_EVENT_MASK);
+        } catch (Throwable ignored) {
+        }
+    }
+
+    public void showNetworkManager(
+            DDataFlowSpecification dfs,
+            String destinationSymbolCodeParamKey) {
+        if (jVCCIControlPanel != null) {
+            jVCCIControlPanel.showNetworkManager(dfs, destinationSymbolCodeParamKey);
+        }
+    }
+
+    public Object getDataFlowManager(DDataFlowSpecification dataFlow) {
+        if (jVCCIControlPanel != null) {
+            return jVCCIControlPanel.getDataflowManager(dataFlow);
+        }
+        return null;
+    }
+
+    public void uiObjectButtonPressed(
+            Object uiObj,
+            String identifier) {
+        if (jVCCIControlPanel != null && uiObj instanceof IVCCIUIControlObject) {
+            jVCCIControlPanel.uiObjectButtonPressed((IVCCIUIControlObject) uiObj, identifier);
+        }
+    }
+
+    public JMenuItem addPopupMenuItemToToolBarControl(
+            String toolbar,
+            JButton b,
+            ActionListener listener,
+            String label) {
+        return getToolBarControl().addPopupMenuItem(toolbar, b, listener, label);
+    }
+
+    public DDataFlowSpecification getServerDataFlowSpecification(String capabilityName) {
+
+        if (jVCCIControlPanel != null) {
+            switch (capabilityName) {
+                case Constants.CA_LINK16_SERVER:
+                    return jVCCIControlPanel.getLink16ServerDataFlow();
+                case Constants.CA_OTH_SERVER:
+                    return jVCCIControlPanel.getOthGoldServerDataFlow();
+                case Constants.CA_RAP:
+                    return jVCCIControlPanel.getRAPDataFlow();
+                case Constants.CA_MIP:
+                    return jVCCIControlPanel.getMipServerDataFlow();
+                case Constants.CA_FFI_SERVER:
+                    return jVCCIControlPanel.getFFIServerDataFlow();
+            }
+        }
+        return null;
+    }
+
+    public Long getHiddenFolderId() {
+        if (jVCCIControlPanel != null && jVCCIControlPanel.jHiddenFolder != null) {
+            return jVCCIControlPanel.jHiddenFolder.getFolderId();
+        }
+        return null;
+    }
+
+    private void setFirstTabContent(JPanel panel) {
+        SwingUtilities.invokeLater(() -> {
+            JPanel cursitTabPanel = jDashBoardContentPanel.getCURSITTabPanel();
+            if (panel instanceof VCCICursitQuad) {
+                int numberOfChildrenComponents = cursitTabPanel.getComponentCount();
+                if (numberOfChildrenComponents == 2) {
+                    jVCCICursitQuad.getCursitPanel().getMapDisplayPanel().jMapDisplay.setMapFocus(true);
+                    try {
+                        cursitTabPanel.remove(1);
+                    } catch (NullPointerException e) {
+                        jL.warn("JCEF browser has already been disposed.");
+                    }
+                    jVCCICursitQuad.setVisible(true);
+                } else if (numberOfChildrenComponents == 0) {
+                    cursitTabPanel.add(jVCCICursitQuad);
+                    jVCCICursitQuad.setVisible(true);
+                }
+            } else {
+                jVCCICursitQuad.getCursitPanel().getMapDisplayPanel().jMapDisplay.setMapFocus(false);
+                jVCCICursitQuad.setVisible(false);
+                cursitTabPanel.add(panel);
+                panel.setVisible(true);
+            }
+        });
+    }
+
+    private void resetCURSITPanel() {
+        setFirstTabContent(jVCCICursitQuad);
+        resetFilterButtonTextField();
+        jCurrentDynamicPanel = null;
+    }
+
+    private void resetFilterButtonTextField() {
+        JTextField textField = jCursitPanel.getMapDisplayPanel().getCursitFilter().getFilterButtonPanel().getFilterTextField();
+        textField.setText("");
+        textField.setBackground(new Color(255, 255, 255));
+        jCursitPanel.getMapDisplayPanel().getCursitFilter().wildCardFilterChanged("", true);
+        textField.repaint();
+    }
+
+    public void resetMetricsConfigurationPanel() {
+        if (jVCCIControlPanel != null) {
+            jVCCIControlPanel.resetMetricsConfigurationPanel();
+        }
+    }
+
+    private void configure() {
+        jL.info("Task 3 of 4 - Initializing CURSIT");
+        long taskStartMillis = System.currentTimeMillis();
+        activateCursit();
+        jL.info("Task 3 Complete in {} milliseconds", System.currentTimeMillis() - taskStartMillis);
+
+        jL.info("Task 4 of 4 - Loading Exercise Panel");
+        taskStartMillis = System.currentTimeMillis();
+        if (jIncludeCursit) {
+            try {
+                // Initially we show the CURSIT panel (First Tab)
+                resetCURSITPanel();
+                // Second Tab
+                jDashBoardContentPanel.getAdminTabPanel().add(jAdminPanel, BorderLayout.CENTER);
+                // Third Tab
+                jDashBoardContentPanel.getSysViewTabPanel().add(jSystemView, BorderLayout.CENTER);
+                //
+            } catch (Throwable ex) {
+                jL.error(ex.getMessage(), ex);
+            }
+        }
+        jL.info("Task 4 Complete in {} milliseconds", System.currentTimeMillis() - taskStartMillis);
+
+        try {
+            jDashBoardContentPanel.jNorthPanel.setVisible(true);
+            jDashBoardContentPanel.jTBWestPanel.add(jToolBarControl, BorderLayout.CENTER);
+            jDashBoardContentPanel.jVCCILogoLabel.setIcon(
+                    STSIcons.jApp_VCCI56x56_WithText_LightIcon);
+
+            // Now layout our custom components
+            jDashBoardContentPanel.jStatusPanelParent.add(getStatusBar(), BorderLayout.CENTER);
+            jDashBoardContentPanel.jLeftPanel.add(jLeftSidePanelsManager, BorderLayout.CENTER);
+
+            Dimension screenSize = Toolkit.getDefaultToolkit().getScreenSize();
+            double width = screenSize.getWidth();
+            double height = screenSize.getHeight();
+            int dashBoardHeight = (int) (3 * height) / 4;
+            int dashBoardWidth = (int) (13 * width) / 16;
+
+            jLeftSidePanelsManager.setRightContent(jVCCIControlPanelCarrier);
+            // On resize give more space to the data flow panel (bottom)
+            jLeftSidePanelsManager.setResizeWeight(0.0);
+            //jLeftSidePanelsManager.setDividerLocation((2 * dashBoardHeight) / 3);
+            //jLeftSidePanelsManager.setLeftContent(jAddFolderPanelCarrier);
+            jLeftSidePanelsManager.setLeftDismissed(true);
+
+            setSize(dashBoardWidth, dashBoardHeight);
+            jDashBoardContentPanel.jMainSplitPane.setDividerLocation(dashBoardWidth / 4);
+            configureUIForRole();
+        } catch (Throwable ex) {
+            jL.error("Error Initializing ....", ex);
+        }
+    }
+
+    @Override
+    public void initialize() {
+        GUIUtils.centerWindowOnScreen(this);
+        // First launch the exercise select dialog
+        jExerciseSelectDialog = new VCCIExercisesSelectDialog(this);
+        GUIUtils.centerWindowOnScreen(jExerciseSelectDialog);
+        jExerciseSelectDialog.setSize(700, 500);
+        jExerciseSelectDialog.showExerciseSelectedDialog();
+        jExerciseSelectDialog.setName("vcciDashBoardDialogExerciseSelect");
+    }
+
+    public void completeInitialization() {
+        runRedHostCheck();
+        configure();
+
+        // Configure AutoTest - must do it in the Swing thread so Swing does
+        // not get started before we read auto test parameters which might happen
+        // if we did this in the UI Component itself
+        AutoTestConfig.configure(
+                ParadigmSwingUIDirector.jUIDirector.getUIComponent().getComponentParameters());
+        if (AutoTestConfig._active()) {
+            jExerciseSelectDialog.activateAutoTestMode();
+        }
+    }
+
+    @Override
+    public DashboardUIManager createUIManager() {
+        return jVCCIDashboardUIManager;
+    }
+
+    @Override
+    public AdminPanel createAdminPanel() {
+        return new VCCIAdminPanel("Admin", this);
+    }
+
+    public void hideAdminPanel() {
+        ((VCCIAdminPanel) jAdminPanel).hideAdminPanel();
+    }
+
+    @Override
+    public SystemViewCanvas createSystemViewCanvas(
+            SystemView sv,
+            String applicationName) {
+        return new VCCISystemViewCanvas(sv, applicationName);
+    }
+
+    @Override
+    public void dataFlowButtonPressed(
+            String action,
+            DDataFlowSpecification dfs) {
+        // This is the button click from the system view window - we need to
+        // route this to the DFS Panel and let it handle it just like the
+        // buttons that exist there
+        jVCCIControlPanel.systemViewDFSButtonPress(action, dfs);
+    }
+
+    @Override
+    protected CursitQuad createCursitQuad(IMapDisplay mapDisplay) {
+        jVCCICursitQuad = new VCCICursitQuad("CURSIT", mapDisplay);
+        jVCCICursitPanel = jVCCICursitQuad.getCursitPanel();
+
+        return jVCCICursitQuad;
+    }
+
+    @Override
+    protected JPanel getTopPanel() {
+        return jDashBoardContentPanel.jMainPanel;
+    }
+
+    public VCCIStatusBar getStatusBar() {
+        if (jStatusBar == null) {
+            jStatusBar = new VCCIStatusBar();
+        }
+        return jStatusBar;
+    }
+
+    public static VCCIExercise getCurrentExercise() {
+        return (VCCIExercise) ref().jCurrentExercise;
+    }
+
+    private void configureUIForRole() {
+        if (jVCCIDashboardUIManager != null) {
+            jVCCIDashboardUIManager.setRole(jUIRole);
+        }
+        if (jVCCICursitQuad != null) {
+            // To set up proper menus
+            jVCCICursitQuad.panelShownNotification();
+        } else {
+            jL.error("Unable to configure UI for role.  Cursit not initialized.");
+        }
+    }
+
+    public VCCIDashboardUIManager getUIManager() {
+        return jVCCIDashboardUIManager;
+    }
+
+    public boolean isAar() {
+        return false;
+    }
+
+    // Convenience access to the VCCI DashBoard singleton
+    static public VCCIDashBoard ref() {
+        return VCCIDashBoard.jVCCIDashBoard;
+    }
+
+    static public VCCIControlPanel getVCCIControlPanel() {
+        return ref().jVCCIControlPanel;
+    }
+
+    static public VCCICursitPanel getCursitPanel() {
+        return ref().jVCCICursitPanel;
+    }
+
+    public void launchDialog(IFrameworkDialog fDlg) {
+        JDialog dlg = fDlg.getDialog();
+
+        GUIUtils.centerWindowOnScreen(dlg);
+        dlg.setVisible(true);
+    }
+
+    public void addCustomPanel(JPanel panel) {
+        jDashBoardContentPanel.addCustomPanel(panel);
+    }
+
+    public void activateDynamicArea(
+            STSPanel vp,
+            boolean maximize) {
+        // Switch to first tab
+        jDashBoardContentPanel.getRightSideTabPane().setSelectedIndex(0);
+        // Show requested panel (where CURSIT normally is)
+        setFirstTabContent(vp.getPanel());
+        jCurrentDynamicPanel = vp;
+    }
+
+    @Override
+    public void toggleAdminPanel() {
+        // Not required
+    }
+
+    @Override
+    public void clearExerciseData() {
+        jVCCIControlPanel.clear();
+    }
+
+    public void updateSystemDiagram() {
+        if (jSystemView != null) {
+            jSystemView.rebuildSystemDiagram();
+        }
+    }
+
+    @Override
+    public void diagnosticsPanelCancelPressed() {
+        super.diagnosticsPanelCancelPressed();
+        resetAllRightSidePanels();
+    }
+
+    /// ------------------ General
+    @Override
+    public void resetAllRightSidePanels() {
+        // Get current panel
+        if (jCurrentDynamicPanel != null) {
+            ISTSPanelCarrierPayload vpl = jCurrentDynamicPanel.getContentPayload();
+            if (vpl instanceof Manager) {
+                ((Manager) vpl).managerHiddenNotification();
+            }
+        }
+        // Reset CURSIT into the dynamic area
+        resetCURSITPanel();
+
+        if (jVCCIControlPanel != null) {
+            jVCCIControlPanel.resetAllRightSidePanels();
+        }
+
+        jVCCIControlPanel.clearButtonPanelHighlights();
+
+// No longer required (R. Hans) - fixes flashing of the UI
+//        // Resize hack to get window to display
+//        if (this.getExtendedState() != JFrame.MAXIMIZED_BOTH) {
+//            //forceDashBoardResize();
+//        }
+        repaint();
+    }
+
+    public void forceDashBoardResize() {
+        Dimension size = this.getSize();
+        int diff = jMakeBigger ? 1 : -1;
+        size.width += diff;
+        jMakeBigger = !jMakeBigger;
+        setSize(size);
+    }
+
+    public void showRightSidePanel(
+            ISTSPanelCarrierPayload payload,
+            boolean maximize) {
+        resetAllRightSidePanels();
+        STSPanel vp = new STSPanel(payload);
+        activateDynamicArea(vp, maximize);
+        if (payload instanceof Manager) {
+            ((Manager) payload).managerShownNotification();
+        }
+    }
+
+    public void showRightSidePanel(
+            ISTSPanelCarrierPayload payload,
+            Object uiObj,
+            boolean maximize) {
+        jVCCIControlPanel.clearButtonPanelHighlights();
+        showRightSidePanel(payload, maximize);
+        if (uiObj instanceof IVCCIUIControlObject) {
+            ((IVCCIUIControlObject) uiObj).setControlObjectHighlighted(true);
+        }
+    }
+
+    /// ------------------ Capabilties Panel Actions
+    public void processCapabilitiesPanelSave(
+            DConnection conn,
+            DDataFlowSpecification dfs) {
+        dfs.setIsComplete(true);
+        dfs.setConnection(conn);
+        DDataFlowSpecification clone = dfs.clone();
+        boolean isUpdate = false;
+        //check if dfs is update or not, if update then send update request not create
+        if (clone.isUpdate()) {
+            isUpdate = true;
+        }
+        if (ParadigmSwingUIDirector.jUIDirector != null) {
+            CreateUpdateDataFlowSpecificationRequest cudfsr
+                    = new CreateUpdateDataFlowSpecificationRequest(clone, isUpdate);
+
+            ParadigmSwingUIDirector.jUIDirector.issueFeatureRequest(
+                    this,
+                    VCCIDashBoard.getCurrentExercise().getBrokerKey(),
+                    VCCIControlPanel.class.getCanonicalName(),
+                    MediationService.class.getCanonicalName(),
+                    MediationService.CREATE_UPDATE_DATA_FLOW_SPECIFICATION, cudfsr, true);
+        }
+
+    }
+
+    public boolean isExerciseLoadInProgress() {
+        return this.jExerciseLoadInProgress;
+    }
+
+    private void setDashboardVisible(boolean visible) {
+        setVisible(visible);
+    }
+
+    /// ------------------ VCCIExercise Actions
+    @Override
+    // Method is called periodically by the base class while the busy
+    // dialog is in display. Here we check if all the requests that we need for
+    // this exercise have been received yet or not. Once received the exercise
+    // load is complete and the base class will bring down the busy dialog.
+    protected boolean isDerivedClassReady() {
+        boolean allRequestIn = ((jGetFoldersRequest != null)
+                && (jGetSystemCapabilitysRequest != null)
+                && (jGetDataFlowsRequest != null)
+                && (jGetConnectionTypesRequest != null)
+                && (jGetContextRequest != null)
+                && (jGetObjectItemsRequest != null)
+                && (jGetObjectTypesRequest != null)
+                && (jGetNetworkAdaptorsRequest != null));
+
+        String requestStatus =
+                " jGetFoldersRequest=" + (jGetFoldersRequest == null ? " null" : " received")
+                        + " jGetSystemCapabilitysRequest=" +
+                        (jGetSystemCapabilitysRequest == null ? " null" : " received")
+                        + " jGetDataFlowSpecificationsRequest=" +
+                        (jGetDataFlowsRequest == null ? "null" : " received")
+                        + " jGetConnectionTypesRequest=" +
+                        (jGetConnectionTypesRequest == null ? " null" : " received")
+                        + " jGetContextRequest=" + (jGetContextRequest == null ? " null" : " received")
+                        + " jGetObjectItemsRequest=" +
+                        (jGetObjectItemsRequest == null ? " null" : " received")
+                        + " jGetObjectTypesRequest=" +
+                        (jGetObjectTypesRequest == null ? " null" : " received")
+                        + " jGetNetworkAdaptorsRequest=" +
+                        (jGetNetworkAdaptorsRequest == null ? " null" : " received");
+        UIAudit.audit("isDerivedClassReady:"
+                + requestStatus, UIAudit.EXERCISE_CONNECTION);
+
+        if (allRequestIn) {
+            // UIDirector.uiPerformanceMonitor("Derived - all requests are in ... processing request data...");
+            LinkedList<DConnectionType> connTypes = jGetConnectionTypesRequest.getConnectionTypes();
+            jVCCIControlPanel.setConnectionTypes(connTypes);
+            jVCCIControlPanel.resetSystemCapabilities(jGetSystemCapabilitysRequest);
+            jVCCICursitPanel.getVCCIMapDisplayPanel().setContextIds(jGetContextRequest);
+            if (DataBank.jDataBank != null) {
+                DataBank.jDataBank.processObjectItems(jGetObjectItemsRequest);
+                DataBank.jDataBank.processObjectTypes(jGetObjectTypesRequest);
+                DataBank.jDataBank.processContexts(jGetContextRequest);
+            }
+            jVCCIControlPanel.resetFoldersAndDataFlows(jGetFoldersRequest, jGetDataFlowsRequest);
+            getUIManager().enableControls(true);
+            getUIManager().sensitizeUI(((VCCIExercise) super.jCurrentExercise).getSystemState());
+            jExerciseLoadInProgress = false;
+            // UIDirector.uiPerformanceMonitor("Derived - done all data processing - switch is done...");
+            // Last bit of dashboard configuration
+
+            // Make dashboard visible
+            setDashboardVisible(true);
+            jVCCICursitPanel.requestMovementCapabilityDataFlows();
+
+            // Allow control panel to send request
+            jStatusBar.sendTimeFormatsRequest();
+            return true;
+        }
+        return false;
+    }
+
+    // Here we will do whatever is necessary to load exercise data (in addition
+    // to what the base class loads). The base class will keep calling
+    // isDerivedClassReady() until we are done and then it will clear the busy.
+    // When this method is called the component list has been loaded and CURSIT
+    // registration is done.
+    @Override
+    public void notifyOfExerciseActivation(STSExercise stsExercise) {
+        setBusyMessage("Loading exercise data ...");
+        VCCIExercise exercise = (VCCIExercise) stsExercise;
+        jStatusBar.exercise();
+        if (exercise != null) {
+            // Reset these to null so we get the data for the new exercise
+            jGetFoldersRequest = null;
+            jGetDataFlowsRequest = null;
+            jGetSystemCapabilitysRequest = null;
+            jGetConnectionTypesRequest = null;
+            jGetContextRequest = null;
+            jGetObjectItemsRequest = null;
+            jGetObjectTypesRequest = null;
+            jGetNetworkAdaptorsRequest = null;
+            jExerciseLoadInProgress = true;
+            exercise.sendExerciseLoadDataRequests();
+        }
+    }
+
+    public void setFoldersResponse(GetFoldersRequest req) {
+        jGetFoldersRequest = req;
+    }
+
+    public void setObjectItemsResponse(GetObjectItemsRequest req) {
+        jGetObjectItemsRequest = req;
+    }
+
+    public void setObjectTypesResponse(GetObjectTypesRequest req) {
+        jGetObjectTypesRequest = req;
+    }
+
+    public void setDataFlowsResponse(GetDataFlowSpecificationsRequest req) {
+        jGetDataFlowsRequest = req;
+    }
+
+    public void setSystemCapabilitysResponse(GetSystemCapabilitysRequest req) {
+        jGetSystemCapabilitysRequest = req;
+    }
+
+    public void setConnectionTypesResponse(GetConnectionTypesRequest req) {
+        jGetConnectionTypesRequest = req;
+    }
+
+    public void setContextResponse(GetContextTreeNodeRequest req) {
+        jGetContextRequest = req;
+        updateContextIds(req.getResults());
+    }
+
+    @Override
+    public boolean isConnectionNameUnique(
+            String name,
+            DConnection conn) {
+        return jVCCIControlPanel.isConnectionNameUnique(name, conn);
+    }
+
+    @Override
+    public boolean isValidUIName(String name) {
+        // Check validity
+        return jVCCIControlPanel.isValidUIName(name);
+    }
+
+    @Override
+    public void dataFlowConfigSaveNotify(
+            DDataFlowSpecification specification,
+            boolean isUpdate) {
+        jVCCIControlPanel.processDFSPanelSave(specification, isUpdate);
+        resetAllRightSidePanels();
+    }
+
+    @Override
+    public void dataFlowConfigMultiSaveNotify(
+            List<DDataFlowSpecification> specificationList,
+            boolean isUpdate) {
+        jVCCIControlPanel.processDFSPanelMultiSave(specificationList, isUpdate);
+        resetAllRightSidePanels();
+    }
+
+    // This is only being used by DSL.  We have a message being routed from the DF Update Case to the UI,
+    // Then to the DF Manager, which then waits for the save to finish before sending a refresh orbat message to the
+    // Adaptor.  Should refactor this! --SS
+    @Override
+    public void dataFlowConfigUpdateNotify(DDataFlowSpecification dfs) {
+        resetAllRightSidePanels();
+    }
+
+    @Override
+    public void dataFlowConfigCancelNotify() {
+        resetAllRightSidePanels();
+    }
+
+    @Override
+    public void connectionConfigurationCancelled() {
+        resetAllRightSidePanels();
+    }
+
+    @Override
+    public void connectionUpdatedSuccessfully() {
+        resetAllRightSidePanels();
+    }
+
+    // Add rules for allowing multiple dataflows of any sort
+    @Override
+    public boolean allowsMultipleDataflows(
+            DSystemCapability capability,
+            DConnection conn) {
+        // No multiple dataflows allowed
+        if (Constants.CA_DATA_FILL.equals(capability.getSystemCapabilityName())
+                && DSystemCapability.SYSTEM_CAPABILITY_CATEGORY_CODE_IN.equals(
+                capability.getSystemCapabilityCategoryCode())) {
+            for (DDataFlowSpecification dfs : jVCCIControlPanel.getDataflows()) {
+                if ((dfs.getConnection().getConnectionName().equals(Constants.CT_ABACUS_V35))
+                        && dfs.getSystemCapability().getSystemCapabilityName().equals(
+                        Constants.CA_DATA_FILL)
+                        && dfs.getSystemCapability().getSystemCapabilityCategoryCode().equals(
+                        DSystemCapability.SYSTEM_CAPABILITY_CATEGORY_CODE_IN)) {
+                    return false;
+                }
+            }
+            return true;
+        }
+        if (Constants.CA_CONTROL_FEATURE.equals(capability.getSystemCapabilityName())
+                && DSystemCapability.SYSTEM_CAPABILITY_CATEGORY_CODE_OUT.equals(
+                capability.getSystemCapabilityCategoryCode())) {
+            for (DDataFlowSpecification dfs : jVCCIControlPanel.getDataflows()) {
+                if ((dfs.getConnection().getConnectionName().equals(Constants.CT_ABACUS_V35))
+                        && dfs.getSystemCapability().getSystemCapabilityName().equals(
+                        Constants.CA_CONTROL_FEATURE)
+                        && dfs.getSystemCapability().getSystemCapabilityCategoryCode().equals(
+                        DSystemCapability.SYSTEM_CAPABILITY_CATEGORY_CODE_OUT)) {
+                    return false;
+                }
+            }
+            return true;
+        }
+        if (Constants.CA_SA.equals(capability.getSystemCapabilityName())
+                && DSystemCapability.SYSTEM_CAPABILITY_CATEGORY_CODE_OUT.equals(
+                capability.getSystemCapabilityCategoryCode())) {
+            for (DDataFlowSpecification dfs : jVCCIControlPanel.getDataflows()) {
+                if ((dfs.getConnection().getConnectionName().equals(Constants.CT_ABACUS_V35))
+                        && dfs.getSystemCapability().getSystemCapabilityName().equals(Constants.CA_SA)
+                        && dfs.getSystemCapability().getSystemCapabilityCategoryCode().equals(
+                        DSystemCapability.SYSTEM_CAPABILITY_CATEGORY_CODE_OUT)) {
+                    return false;
+                }
+            }
+            return true;
+        }
+        return false;
+    }
+
+    public LinkedList<DDataFlowSpecification> getDataFlows() {
+        return jVCCIControlPanel.getDataflows();
+    }
+
+    public LinkedList<DConnectionType> getConnectionTypes() {
+        return jVCCIControlPanel.getAllConnectionTypes();
+    }
+
+    @Override
+    public DSystemCapability getSystemCapabilityByID(long functionId) {
+        return jVCCIControlPanel.getSystemCapabilityById(functionId);
+    }
+
+    public LinkedList<DSystemCapability> getSystemCapabilitys() {
+        return jVCCIControlPanel.getSystemCapabilities();
+    }
+
+    @Override
+    public DDataFlowSpecification getDataFlowById(long dfsId) {
+        //return AppDataBank.getDataFlowById(dfsId);
+        LinkedList<DDataFlowSpecification> dfsList = jVCCIControlPanel.getDataflows();
+        for (DDataFlowSpecification dfs : dfsList) {
+            if (dfs.getDataFlowSpecificationIndex() == dfsId) {
+                return dfs;
+            }
+        }
+        return null;
+    }
+
+    @Override
+    public LinkedList<DDataFlowSpecification> getConnectionDataflows(DConnection conn) {
+        return jVCCIControlPanel.getDataflowsUsingConnection(conn);
+    }
+
+    @Override
+    public LinkedList<DConnection> getConnections() {
+        return jVCCIControlPanel.getConnections();
+    }
+
+    @Override
+    public DConnection getConnectionByConnectionID(long connectionId) {
+        return jVCCIControlPanel.getConnectionById(connectionId);
+    }
+
+    @Override
+    public LinkedList<DConnection> getConnectionsByTypeName(String typeName) {
+        return jVCCIControlPanel.getConnectionsByTypeName(typeName);
+    }
+
+    @Override
+    protected void postExerciseLoadNotify() {
+        // Load Maps
+        if (!MapDisplayPanel.jMapDisplayPanel.isAar()) {
+            MapDisplayPanel.jMapDisplayPanel.initializeMaps(jCurrentExercise.getMapList());
+        }
+    }
+
+    public void processExerciseSelected(VCCIExercise ex) {
+        GUIUtils.centerWindowOnScreen(this);
+        setCurrentExercise(ex);
+        if (ex.isLive()) {
+            // In the remote UI case, once the STSDashBoard receives a
+            // BrokerNotification that this remote exercise is connected, it
+            // informs us via exerciseConnected()  at which point we start
+            // the exercise loading process
+            ex.connect();
+        } else {
+            // For local exercises we start the loading process right here since
+            // we are already connected to the broker
+            startExerciseLoadingProcess();
+        }
+        setTitle("VCCI - Current Exercise : " + ex.getName());
+    }
+
+    @Override
+    public void exerciseDisconnected(STSExercise exercise) {
+        // This will happen in the remote VCCI connection case - we need to clear
+        // the display and jump back to the exercise select dialog. The user will
+        // have to start the process again
+        if (VCCIDashBoard.jRemoteConnectMode && jCurrentExercise != null) {
+            if (!jCurrentExercise.isConnected()) {
+                ParadigmSwingUIDirector.jUIDirector.getUIComponent().
+                        getComponentGroup().disconnectFromBrokerServer(
+                                jCurrentExercise.getBrokerKey());
+                clearExercise();
+                // Make sure any busy dialog is terminated
+                ParadigmSwingUIDirector.jUIDirector.clearBusy();
+                jExerciseSelectDialog.setError(
+                        "Exercise disconnected ... please try again once exercise is active");
+                setDashboardVisible(false);
+                // Need to call this and not setVisible()
+                jExerciseSelectDialog.showExerciseSelectedDialog();
+            }
+        }
+    }
+
+    @Override
+    public void exerciseConnected(STSExercise exercise) {
+        // We only ever use this method in a remote VCCI case because
+        // in standalone mode we are already connected. This method is called by
+        // STSDashBoard.
+        if (VCCIDashBoard.jRemoteConnectMode) {
+            startExerciseLoadingProcess();
+        }
+    }
+
+    @Override
+    protected void monitoredServersNotification(LinkedHashMap<String, BrokerKey> brokerKeys) {
+        if (jExerciseManager != null) {
+            jExerciseManager.updateMonitoredExercises(brokerKeys);
+        }
+    }
+
+    // --- IDoublePanelManager
+    @Override
+    public void doublePanelManagerShuffleNotification(DoublePanelManager manager) {
+        if (manager == jLeftSidePanelsManager) {
+            boolean leftVisible = manager.isLeftVisible() && !manager.isLeftMinimized();
+            boolean rightVisible = manager.isRightVisible() && !manager.isRightMinimized();
+
+            // If both panels on the left side are invisible we get rid of the
+            // main splitter and just put the right side of THIS window in the
+            // center panel
+            if (!leftVisible && !rightVisible) {
+                // Remove splitter and just put the right panel in the center
+                jDashBoardContentPanel.jCenterPanel.remove(jDashBoardContentPanel.jMainSplitPane);
+                jDashBoardContentPanel.jCenterPanel.add(jDashBoardContentPanel.jRightPanel,
+                        BorderLayout.CENTER);
+                jSplitPaneActive = false;
+            } else {
+                if (!jSplitPaneActive) {
+                    jDashBoardContentPanel.jCenterPanel.removeAll();
+                    jDashBoardContentPanel.jCenterPanel.add(jDashBoardContentPanel.jMainSplitPane,
+                            BorderLayout.CENTER);
+                    // jDashBoardContentPanel.jCenterPanel.add(jDashBoardContentPanel.jDashBoardWestPanel, BorderLayout.WEST);
+                    jDashBoardContentPanel.jMainSplitPane.setLeftComponent(
+                            jDashBoardContentPanel.jLeftPanel);
+                    jDashBoardContentPanel.jMainSplitPane.setRightComponent(
+                            jDashBoardContentPanel.jRightPanel);
+                    jSplitPaneActive = true;
+                }
+                //jMainSplitPane.setDividerLocation(0.333);
+                jDashBoardContentPanel.jMainSplitPane.setDividerSize(5);
+            }
+        }
+        revalidate();
+    }
+
+    @Override
+    public void doublePanelManagerRightMinimizedNotification(
+            DoublePanelManager manager,
+            PanelCarrier carrier) {
+        if (manager == jLeftSidePanelsManager) {
+            jStatusBar.addMinimized(carrier, false);
+        } else {
+            jStatusBar.addMinimized(carrier, true);
+        }
+    }
+
+    @Override
+    public void doublePanelManagerLeftMinimizedNotification(
+            DoublePanelManager manager,
+            PanelCarrier carrier) {
+        if (manager == jLeftSidePanelsManager) {
+            jStatusBar.addMinimized(carrier, false);
+        } else {
+            jStatusBar.addMinimized(carrier, true);
+        }
+    }
+
+    public void toggleConnectionCapabilityPanelsOrientation() {
+        jLeftSidePanelsManager.toggleOrientation();
+    }
+
+    @Override
+    public void queueSizeNotification(int qSizeMessage, int qSizePriority) {
+        super.queueSizeNotification(qSizeMessage, qSizePriority);
+
+        if (jStatusBar != null) {
+            jStatusBar.setQueueSizes(qSizeMessage, qSizePriority);
+        }
+    }
+
+    // Dashboard is responsible to send out the UINotifications to the
+    // subscribers after taking a look at them
+    @Override
+    public void processDerivedNotification(
+            IUINotificationEnabled subscriber,
+            UINotification notification) {
+        // No super to call here as this is only called after the base class
+        // has handled what it needs
+        if (notification != null) {
+            BTO obj = notification.getObject();
+            if (obj instanceof DisplayableContent) {
+                DisplayableContent dc = (DisplayableContent) obj;
+                if (dc.getSourceComponentID().equals(Controller.class
+                        .getCanonicalName()) &&
+                        dc.getContent() instanceof ProgressStatistics) {
+
+                    return;
+                }
+            }
+
+            BrokerKey brokerKey = notification.getBrokerKey();
+
+            if (brokerKey == null || jCurrentExercise == null) {
+                return;
+            }
+
+            if (obj instanceof DisplayableMessage) {
+                notifyUser((VCCIExercise) jCurrentExercise, (DisplayableMessage) obj);
+                // Once a user is notified, there is nothing more that needs to be done
+                return;
+            }
+
+            if (obj instanceof ClockTick) {
+                setClock();
+                if (jVCCIControlPanel != null) {
+                    jVCCIControlPanel.sendClockTick((ClockTick) obj);
+                }
+            }
+
+            if (subscriber instanceof IUINotificationEnabled) {
+                if (obj instanceof ConnectionTypeNotification) {
+                    ConnectionTypeNotification ctn = (ConnectionTypeNotification) obj;
+                    DConnectionType dct = ctn.getConnectionType();
+                    if (dct != null) {
+                        DataBank.jDataBank.updateMappedObjects(dct.getMapper());
+                    }
+                }
+                ((IUINotificationEnabled) subscriber).processNotification(obj);
+            }
+
+            notification = null;
+        }
+    }
+
+    @Override
+    public Class getResourceClass() {
+        return VcciMain.class;
+    }
+
+    @Override
+    public void setUserMessage(
+            GUIConstants.UserMessageType type,
+            String msg) {
+        if (ref() != null) {
+            ref().jStatusBar.setMessage(type, msg);
+        }
+    }
+
+    public DConnectionType getConnectionTypeByConnectionTypeId(long connectionTypeId) {
+        return jVCCIControlPanel.getConnectionTypeByID(connectionTypeId);
+    }
+
+    public DConnectionType getConnectionTypeByConnectionID(long connectionId) {
+        return jVCCIControlPanel.getConnectionTypeByConnectionId(connectionId);
+    }
+
+    public DConnectionType getConnectionTypeByConnectionTypeName(String connectionName) {
+        return jVCCIControlPanel.getConnectionTypeByName(connectionName);
+    }
+
+    /* A multiline message */
+    public static void setUserMessage(
+            GUIConstants.UserMessageType type,
+            LinkedList<String> message) {
+        if (ref() != null) {
+            ref().jStatusBar.setMessage(type, message);
+        }
+    }
+
+    public static void setMessage(String msg) {
+        VCCIDashBoard.ref().setUserMessage(GUIConstants.UserMessageType.MESSAGE_NORMAL, msg);
+    }
+
+    public static void setError(String msg) {
+        VCCIDashBoard.ref().setUserMessage(GUIConstants.UserMessageType.MESSAGE_ERROR, msg);
+    }
+
+    public static void setWarning(String msg) {
+        VCCIDashBoard.ref().setUserMessage(GUIConstants.UserMessageType.MESSAGE_WARNING, msg);
+    }
+
+    /**
+     * This method will process a message that is to be displayed to a user.
+     *
+     * @param si     A reference to the System Instance to which this message
+     *               applies
+     * @param msgObj A reference to the object containing a user message
+     */
+    public void notifyUser(VCCIExercise si, DisplayableMessage msgObj) {
+        String msg = msgObj.getMessageText();
+        notifyUser(msg, msgObj.getMessageType(), msgObj.getAlsoLog());
+        if (msgObj.getCommand() == DisplayableMessage.Command.SHUTDOWN) {
+            if (si != null) {
+                inlineOptionPaneRequest(
+                        OptionsPane.PromptType.PROMPT_OK_ERROR,
+                        msg);
+                si.shutdown(false);
+            }
+        } else if (msgObj.getCommand() == DisplayableMessage.Command.PROMPT) {
+            if (si != null) {
+                inlineOptionPaneRequest(
+                        OptionsPane.PromptType.PROMPT_OK_INFORMATION,
+                        msg);
+            }
+        }
+    }
+
+    public boolean isMappingImportDialogActive() {
+        return jMappingImportDialogActive;
+    }
+
+    // --- IFRREnabled
+    @Override
+    public void processResponse(FeatureRequestResponse frr) {
+        ParadigmSwingUIDirector.jUIDirector.clearBusy();
+        if (ParadigmSwingUIDirector.jUIDirector.getUIComponent().processError(frr, false, true)) {
+            String msgStr = String.format(
+                    "Feature request : %s did not get successfully executed. State : %s",
+                    frr.getDstComponentID() + ":" + frr.getComponentFeatureID(),
+                    frr.getStateString());
+            ParadigmSwingUIDirector.jUIDirector.showApplicationErrorMessage(msgStr);
+            return;
+        }
+
+        BTO result = frr.getFeatureResult();
+        if (result instanceof GetMappedObjectCandidatesRequest) {
+            if (jTypesRequest == null) {
+                // Just got the types request back
+                jTypesRequest = (GetMappedObjectCandidatesRequest) result;
+
+                // Now send request for instances
+                GetMappedObjectCandidatesRequest req = new GetMappedObjectCandidatesRequest(-1, -1,
+                        true,
+                        true,
+                        true,
+                        true,
+                        false);
+                ParadigmSwingUIDirector.jUIDirector.issueFeatureRequest(
+                        this,
+                        super.jCurrentExercise.getBrokerKey(),
+                        VCCIDashBoard.class.getCanonicalName(),
+                        MasterOMAdaptor.class.getCanonicalName(),
+                        OMAdaptor.READ_ITEMMAPPINGCANDIDATES, req, true);
+                ParadigmSwingUIDirector.jUIDirector.markBusy("Preparing for mappings import", false,
+                        VCCIDashBoard.ref(), null, -1);
+            } else {
+                jItemsRequest = (GetMappedObjectCandidatesRequest) result;
+                completeMappingsImport();
+            }
+        }
+        if (result instanceof GetAutoBackupParameterRequest) {
+            AutoBackupDialog dialog = new AutoBackupDialog(this,
+                    ((GetAutoBackupParameterRequest) result).jParameters);
+            dialog.setVisible(true);
+        }
+    }
+
+    public static DSimulationParameter buildSimParam(
+            String name,
+            String value) {
+        DSimulationParameter dsm = new DSimulationParameter();
+        dsm.setSimulationParameterName(name);
+        dsm.setSimulationParameterValue(value);
+        return dsm;
+    }
+
+    @Override
+    public void processRequestFailed(FeatureRequestResponse frr) {
+    }
+
+    private static void frameClosingHandler() {
+        if (jByPassConfirm) {
+            return;
+        }
+
+        // Confirm with user
+        String busyMessage = "Shutting down VCCI...";
+        boolean exit = confirmExit(busyMessage);
+        if (!exit) {
+            return;
+        }
+        // close busy dialog
+        ParadigmSwingUIDirector.jUIDirector.busyTaskCancelled();
+        if (jRemoteConnectMode || VCCIDashBoard.getCurrentExercise() == null) {
+            // Directly call stop group
+            ParadigmSwingUIDirector.jUIDirector.getUIComponent().getComponentGroup().stopGroup();
+        } else {
+            VCCIDashBoard.getCurrentExercise().shutdown(false);
+        }
+
+        getCursitPanel().getVCCIMapDisplayPanel().getMapDisplay().dispose();
+    }
+
+    public void exitSwingThread() {
+        jByPassConfirm = true;
+        dispose();
+    }
+
+    // --- IDockableParent
+    @Override
+    public void dockPanel(IDockable hp) {
+    }
+
+    @Override
+    public void undockPanel(IDockable hp) {
+        throw new UnsupportedOperationException("Not supported yet.");
+    }
+
+    @Override
+    public JFrame getFrame() {
+        return this;
+    }
+
+    // --- IDashboardInterface
+    @Override
+    public void setSimTimeOffset(int day, int hour, int minute, int second) {
+        if (jSimTimeOffsetDialog == null) {
+            jSimTimeOffsetDialog = new SimTimeOffsetDialog(
+                    ParadigmSwingUIDirector.jUIDirector.getApplicationFrame(),
+                    this,
+                    false,
+                    true,
+                    "D-Day Offset");
+        }
+        jSimTimeOffsetDialog.setDDayOffset(day, hour, minute, second);
+    }
+
+    @Override
+    public IDateTimeFormatProducer getDateTimeFormatProducer() {
+        return this;
+    }
+
+    @Override
+    public void setClock() {
+        getStatusBar().setClock();
+    }
+
+    // --- IMappingImportDialogUser
+    @Override
+    public void dialogDismissNotify() {
+        jMappingImportDialogActive = false;
+    }
+
+    @Override
+    public boolean sourceExerciseIsInView() {
+        // We are always importing into the target exercise
+        return false;
+    }
+
+    // --- Menu Entry handlers
+    public static void onAbout() {
+        ((VCCIDashBoard) STSDashBoard.ref()).showAboutBox();
+    }
+
+    public void onMappingsReport() {
+        MappingsReportGenerator generator = new MappingsReportGenerator(
+                jVCCIControlPanel.getDataflows(),
+                jVCCIControlPanel.getConnections(),
+                jVCCIControlPanel.getAllConnectionTypes());
+        generator.generateReport();
+    }
+
+    public void onExportMappings() {
+        MappingsXMLRep xmlRep = new MappingsXMLRep(super.jCurrentExercise);
+        xmlRep.exportMappings();
+    }
+
+    public void onExportExercise() {
+        ExerciseStructureXMLRep xrep = new ExerciseStructureXMLRep(
+                jVCCIControlPanel.getConnectionTypes(),
+                jVCCIControlPanel.jSystemCapabilities);
+        xrep.exportExerciseStructure(
+                null,
+                jVCCIControlPanel.getConnections(),
+                jVCCIControlPanel.getTopLevelFolders(),
+                jVCCIControlPanel.getDataflows());
+    }
+
+    public void onImportMappings() {
+        jXMLRep = new MappingsXMLRep(super.jCurrentExercise);
+        if (jXMLRep.importMappings()) {
+            // Null here means the target is the whole exercise
+            startMappingsImportProcess(null);
+        } else {
+            ParadigmSwingUIDirector.jUIDirector.showApplicationErrorMessage(
+                    "Unable to import mappings!");
+        }
+    }
+
+    public void runMappingImport(Object object) {
+        if (super.jCurrentExercise != null) {
+            DDataFlowSpecification dfs;
+            DConnection conn;
+            DConnectionType connType;
+            if (object instanceof DDataFlowSpecification) {
+                dfs = (DDataFlowSpecification) object;
+                jXMLRep = new MappingsXMLRep(dfs, super.jCurrentExercise);
+            } else if (object instanceof DConnection) {
+                conn = (DConnection) object;
+                jXMLRep = new MappingsXMLRep(conn, super.jCurrentExercise);
+            } else if (object instanceof DConnectionType) {
+                connType = (DConnectionType) object;
+                jXMLRep = new MappingsXMLRep(connType, super.jCurrentExercise);
+            }
+
+            if (jXMLRep != null) {
+                if (jXMLRep.importMappings()) {
+                    startMappingsImportProcess(object);
+                }
+            }
+        }
+    }
+
+    public void startMappingsImportProcess(Object targetOfMappingsImport) {
+        // This method will get the type candidates from the OMAdaptor
+        // When that returns we send for the item candidates. Once that
+        // returns we pop up the import dialog to allow use to control
+        // the mapping import
+        jMappingsImportObject = targetOfMappingsImport;
+        jTypesRequest = null;
+        jItemsRequest = null;
+        // Types
+        GetMappedObjectCandidatesRequest req = new GetMappedObjectCandidatesRequest(-1, -1, true,
+                true, true,
+                true, false);
+        ParadigmSwingUIDirector.jUIDirector.issueFeatureRequest(
+                this,
+                super.jCurrentExercise.getBrokerKey(),
+                VCCIDashBoard.class.getCanonicalName(),
+                MasterOMAdaptor.class.getCanonicalName(),
+                OMAdaptor.READ_TYPEMAPPINGCANDIDATES, req, true);
+        ParadigmSwingUIDirector.jUIDirector.markBusy("Preparing for mappings import", false,
+                VCCIDashBoard.ref(), null, -1);
+    }
+
+    private void completeMappingsImport() {
+        LinkedHashMap<String, DMappedObject> types = new LinkedHashMap();
+        LinkedHashMap<String, DMappedObject> items = new LinkedHashMap();
+        if (jTypesRequest != null) {
+            types = jTypesRequest.getMappingObjects();
+        }
+        if (jItemsRequest != null) {
+            items = jItemsRequest.getMappingObjects();
+        }
+
+        // Now depending on the target of the mappings import - prepare the
+        // data differently - this same method can be used to import mappings
+        // to all targets in the exercise (dataflows/conns/conntypes) or it
+        // can be used to import to a specific target
+        LinkedList<DDataFlowSpecification> targetDataFlows = new LinkedList<>();
+        LinkedList<DConnectionType> targetConnectionTypes = new LinkedList<>();
+        LinkedList<DConnection> targetConnections = new LinkedList<>();
+        Object importTarget = jMappingsImportObject;
+        if (importTarget == null) {
+            targetDataFlows = jVCCIControlPanel.getDataflows();
+            targetConnections = jVCCIControlPanel.getConnections();
+            targetConnectionTypes = jVCCIControlPanel.getConnectionTypes();
+        } else if (importTarget instanceof DDataFlowSpecification) {
+            targetDataFlows.add((DDataFlowSpecification) importTarget);
+        } else if (importTarget instanceof DConnection) {
+            targetConnections.add((DConnection) importTarget);
+        } else if (importTarget instanceof DConnectionType) {
+            targetConnectionTypes.add((DConnectionType) importTarget);
+        }
+
+        if (jXMLRep != null) {
+            MappingImportDialog mid = new MappingImportDialog(VCCIDashBoard.ref(), this);
+
+            mid.setImportData(super.jCurrentExercise.getBrokerKey(),
+                    jXMLRep.getImportedDataflows(),
+                    targetDataFlows,
+                    items,
+                    types,
+                    jXMLRep.getImportedConnectionTypes(),
+                    targetConnectionTypes,
+                    jXMLRep.getImportedConnections(),
+                    targetConnections);
+
+            // Need good space here
+            Dimension screenSize = Toolkit.getDefaultToolkit().getScreenSize();
+            double width = screenSize.getWidth();
+            double height = screenSize.getHeight();
+            int h = (int) (5 * height) / 12;
+            int w = (int) (5 * width) / 8;
+            mid.setSize(w, h);
+            GUIUtils.centerWindowOnScreen(mid);
+
+            jMappingImportDialogActive = true;
+            mid.setVisible(true);
+        } else {
+            ParadigmSwingUIDirector.jUIDirector.showApplicationErrorMessage(
+                    "Unable to import mappings!");
+        }
+    }
+
+    public void onImportKmlKmz(ImportKmlRequestNotification request) {
+        ClockTick tick = jCurrentExercise.getClockTick();
+        long currentTime = tick == null ? DBConstants.INVALID_TIME : tick.getClock();
+        long simOffSetTime = tick == null ? DBConstants.INVALID_TIME : tick.getSimulationOffsetTime();
+
+        Optional.ofNullable(request.getFileName())
+                .map(fileName -> {
+                    jPendingImportKmlRequestNotification = request;
+                    return new File(fileName);
+                })
+                .or(KMLUtilities::importFileChooserMaybe)
+                .ifPresent(importFile -> {
+                    KMLImport kmlImport = new KMLImport(getCursitPanel().getDBWriter(), importFile,
+                            currentTime, simOffSetTime, this);
+
+                    kmlImport.start();
+                });
+    }
+
+    public void onExportToKmz(ExportKmlRequestNotification request) {
+        Optional.ofNullable(request.getFileName())
+                .map(fileName -> {
+                    jPendingExportKmlRequestNotification = request;
+                    return new File(fileName);
+                })
+                .or(KMLUtilities::exportFileChooserMaybe)
+                .ifPresent(exportFile -> {
+                    KMLExport kmlExport = new KMLExport(exportFile, request.getItems());
+                    KMLExportRunner kmlExportRunner = new KMLExportRunner(kmlExport, this);
+                    kmlExportRunner.start();
+                });
+    }
+
+    public void showAboutBox() {
+        ImageIcon vcciIcon = new ImageIcon(
+                com.simfront.vcci.VcciMain.class.getResource("vccinew.png"));
+        URL res = Loader.getResourceAsURL("com/calian/paradigm/ui/sts/sts-aboutboximage.jpg");
+        showAboutBox(vcciIcon, res, VCCI);
+    }
+
+    public void onSimTimOffset() {
+        if (jSimTimeOffsetDialog == null) {
+            jSimTimeOffsetDialog = new SimTimeOffsetDialog(
+                    ParadigmSwingUIDirector.jUIDirector.getApplicationFrame(),
+                    this,
+                    false,
+                    true,
+                    "D-Day Offset");
+        }
+        jSimTimeOffsetDialog.setSize(new Dimension(330, 330));
+        GUIUtils.centerWindowOnParent(jSimTimeOffsetDialog, this);
+        jSimTimeOffsetDialog.setVisible(true);
+    }
+
+    public void onPreferences() {
+        //launch the Preferences Dialog
+        PreferenceDialog pd = new PreferenceDialog(this, "Preference Dialog", true);
+        launchDialog(pd);
+    }
+
+    public static boolean onQuickHelp() {
+        File file = new File(VCCIDashBoard.HELP_FILE);
+        try {
+            Desktop.getDesktop().open(file);
+        } catch (Exception ex) {
+            jL.error(ex.getMessage(), ex);
+            return false;
+        }
+        return true;
+    }
+
+    private static boolean confirmExit(String exitBusyMessage) {
+        OptionPaneResponse opr = null;
+        if (VCCIDashBoard.ref() != null) {
+            opr = VCCIDashBoard.ref().inlineOptionPaneRequest(
+                    OptionsPane.PromptType.PROMPT_YES_NO,
+                    "Are you sure you want to exit?");
+
+            if (opr.isYesSelected()) {
+                // put UI on busy
+                try {
+                    ParadigmSwingUIDirector.jUIDirector.markBusy(exitBusyMessage, false,
+                            VCCIDashBoard.jVCCIDashBoard, null,
+                            0);
+
+                    // Note if we have a MapDisplayPanel we will have an AARExercise available
+                    AARExerciseData exercise = MapDisplayPanel.jMapDisplayPanel.jExerciseData;
+
+                    // We are exiting so we will save any maps loaded into/removed from the MapDisplayPanel(AARExercise)
+                    // and persist these changes in the VCCIExercise
+                    if (exercise != null && !exercise.isSaved()) {
+                        AARExerciseData aarEx = MapDisplayPanel.jMapDisplayPanel.jExerciseData;
+                        VCCIExercise vcciEx = VCCIDashBoard.getCurrentExercise();
+                        vcciEx.reconcileMaps(aarEx);
+                        ExerciseIO.writeExercise(vcciEx);
+                    }
+                } catch (Throwable t) {
+                    jL.error(t.getMessage(), t);
+                }
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public static void onExit() {
+        frameClosingHandler();
+    }
+
+    public static void onPrintWindow() {
+        try {
+            PrinterUtil.printComponent(ref().jDashBoardContentPanel.jMainPanel);
+        } catch (PrinterException ex) {
+            jL.error(ex.getMessage(), ex);
+            VCCIDashBoard.setError(ex.getMessage());
+        }
+    }
+
+    public void backupVCCI() {
+        backupVCCI(true);
+    }
+
+    public void backupVCCI(boolean prompt) {
+        OptionPaneResponse opr = VCCIDashBoard.ref().inlineOptionPaneRequest(
+                OptionsPane.PromptType.PROMPT_YES_NO,
+                "Do you want to perform a VCCI data backup?");
+
+        if (opr.isYesSelected()) {
+            new Thread() {
+                @Override
+                public void run() {
+                    try {
+                        DBConn dbconn = getDbConnection();
+                        AutoBackup.backupOMDB(dbconn,
+                                ParadigmSwingUIDirector.jUIDirector.getUIComponent());
+                    } catch (Throwable ex) {
+                        System.out.println(ex.getMessage());
+                        //ex.printStackTrace();
+                    }
+                }
+            }.start();
+        }
+    }
+
+    public void autoBackupVCCI() {
+        GetAutoBackupParameterRequest req = new GetAutoBackupParameterRequest(BTO.CRUDMarker.READ);
+        ParadigmSwingUIDirector.jUIDirector.issueFeatureRequest(
+                this,
+                super.jCurrentExercise.getBrokerKey(),
+                VCCIDashBoard.class.getCanonicalName(),
+                MasterOMAdaptor.class.getCanonicalName(),
+                OMAdaptor.GET_AUTOBACKUP, req, true);
+    }
+
+    public void exportTacticalGraphicSettings() {
+        LinkedHashMap<String, ArrayList<Integer>> jStyles =
+                MapDisplayPanel.jMapDisplayPanel.getSavedStyles();
+        if (!jStyles.isEmpty()) {
+            TacticalGraphicsSettingsRep rep = new TacticalGraphicsSettingsRep(jStyles);
+            rep.exportTacticalGraphicsSettings();
+        } else {
+            ParadigmSwingUIDirector.jUIDirector.showApplicationMessage(
+                    "Error: No Shape Styles have been saved.");
+        }
+    }
+
+    public void importTacticalGraphicsSettings() {
+        TacticalGraphicsSettingsRep rep = new TacticalGraphicsSettingsRep();
+        rep.importTacticalGraphicsSettings();
+    }
+
+    public void exportControlFeatures() {
+        ControlFeaturesSettingsRep rep = new ControlFeaturesSettingsRep();
+        rep.validateMapElements();
+    }
+
+    public void importControlFeatures() {
+        ControlFeaturesSettingsRep rep = new ControlFeaturesSettingsRep();
+        rep.importControlFeatures();
+    }
+
+    public void exportTacticalGraphicsFromAllCustomLayers() {
+        TacticalGraphicsRep rep = new TacticalGraphicsRep();
+        rep.exportTacticalGraphicsFromAllCustomLayers();
+    }
+
+    public void importTacticalGraphics() {
+        TacticalGraphicsRep rep = new TacticalGraphicsRep();
+        rep.importTacticalGraphics();
+    }
+
+    public void metricFormatsDialogDisposed() {
+        jMetricsTimeFormatsDialog = null;
+    }
+
+    public void defineMetricsTimeFormats() {
+        if (jMetricsTimeFormatsDialog == null) {
+            jMetricsTimeFormatsDialog
+                    = new MetricsTimeFormatsDialog(
+                    this, true,
+                    jVCCIControlPanel.jMetricsConfigurationPanel);
+        }
+        GUIUtils.centerWindowOnScreen(jMetricsTimeFormatsDialog);
+        jMetricsTimeFormatsDialog.setVisible(true);
+    }
+
+    public void configureTLS() {
+        if (jTLSDefaultConfigurationDialog == null) {
+            jTLSDefaultConfigurationDialog = new TLSDefaultConfigurationDialog(this, true);
+        }
+        GUIUtils.centerWindowOnScreen(jTLSDefaultConfigurationDialog);
+        jTLSDefaultConfigurationDialog.setVisible(true);
+    }
+
+    // --- Utility methods
+    public VToolBarControl getToolBarControl() {
+        return jToolBarControl;
+    }
+
+    public final void runRedHostCheck() {
+        // See if the red host contains one of our local IPs
+        String gateway = REDServer.getREDHostName();
+        if (gateway == null) {
+            JOptionPane.showMessageDialog(null, "Unable to determine host name.",
+                    "VCCI Network Interface Error",
+                    JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+        try {
+            InetAddress address = InetAddress.getByName(gateway);
+            String hostAddress = address.getHostAddress();
+            // Make sure this is in a local address
+            if (!jValidLocalIPs.contains(hostAddress)) {
+                String warning = "The Configured VCCI Network interface [" + hostAddress +"] is no longer valid." +
+                        "\nClose VCCI and edit C:\\Program Files\\SimToolSuite\\vcci\\config\\red_host_info.txt and update the IP address within the file. " +
+                        "\nPress OK or close this dialog to shutdown VCCI";
+                JOptionPane.showMessageDialog(null, warning, "VCCI Network Interface Error",
+                        JOptionPane.WARNING_MESSAGE);
+                System.exit(1);
+            }
+        } catch (UnknownHostException ex) {
+            jL.error(ex.getMessage(), ex);
+        }
+    }
+
+    public static String indicatorToString(Indicator indicator) {
+        if (indicator == null) {
+            return "UNKNOWN";
+        }
+
+        switch (indicator) {
+            case INITIALIZING:
+            case WARNING:
+            case WARNING_FLASH: {
+                return "WARNING";
+            }
+            case NORMAL:
+                return "NORMAL";
+
+            case STOPPED:
+            case ERROR:
+            case ALARM:
+                return "ERROR";
+
+            case UNKNOWN:
+            default: {
+                return "UNKNOWN";
+            }
+        }
+    }
+
+    /**
+     * This method will determine the set of VCCI Servers that can be used
+     *
+     * @return A collection of valid VCCI RED Client objects (1 fr each VCCI
+     * Server)
+     */
+    public static LinkedHashMap<String, REDClient> getRemoteIPAddresses() {
+        return getRemoteIPAddresses(null);
+    }
+
+    public static LinkedHashMap<String, REDClient> getRemoteIPAddresses(String hostip) {
+        // Try to determine all Remote VCCI Servers that exist
+        LinkedList<REDClient> clients = REDClient.getREDClients(2000, hostip);
+        LinkedHashMap<String, REDClient> vcciRedClients = new LinkedHashMap<>();
+
+        for (REDClient redClient : clients) {
+            vcciRedClients.put(redClient.getREDInetAddress().getHostAddress(), redClient);
+        }
+        return vcciRedClients;
+    }
+
+    public static boolean backup(
+            boolean useRED,
+            String hostname,
+            String dbName,
+            String user,
+            String pwd) {
+        if (useRED) {
+            LinkedHashMap<String, REDClient> reds = jVCCIRedClients;
+            REDClient redClient = reds.get(hostname);
+            if (redClient != null) {
+                try {
+
+                    if (!redClient.connect()) {
+                        return false;
+                    }
+                    String filename =
+                            dbName + "_" + (new DateTime().getDateTimeAsString()) + ".vbk";
+                    File parent = LocalData.getLocalDataFolder("omdb_backup").toFile();
+                    if (!parent.exists()) {
+                        parent.mkdirs();
+                    }
+                    redClient.sendBackupMySQLDB(new File(parent, filename), user, pwd, hostname,
+                            dbName, true);
+                    return true;
+                } catch (IOException ex) {
+                    //This is thrown if the command was unsuccessful.
+                    jL.error(ex.getMessage(), ex);
+                    return false;
+                }
+            }
+            return false;
+        } else {
+            return AutoBackup.backupOMDB(hostname, dbName, user, pwd,
+                    ParadigmSwingUIDirector.jUIDirector.getUIComponent(),
+                    false);
+        }
+    }
+
+    @Override
+    protected void formWindowClosedNotify() {
+        onExit();
+    }
+
+    @Override
+    protected void formWindowClosingNotify() {
+        onExit();
+    }
+
+    @Override
+    public String getSupportedInterfacesFile() {
+        return "doc/vcci_prodinfo.html";
+    }
+
+    /**
+     * Grays out a bunch of control menus and options so that Aramis can be used
+     * in a simple for with just zoom and play capabilities.
+     */
+    @Override
+    public void sensitizeUIControlsForSimpleAramis() {
+        // MAGI:TODO:NEED TO MOVE THIS TO ARAMIS ONLY
+    }
+
+    @Override
+    public void importComplete(KMLImportResponse response) {
+        if (jPendingImportKmlRequestNotification != null) {
+            // Send a KmlImportedNotification as a response to the ImportKmlRequestNotification.
+            // This is likely going to wringer (VCCI does not subscribe to this).
+            KmlImportedNotification notification = new KmlImportedNotification(
+                    response.getFilename(), response.getMessage(), response.isError());
+            ParadigmSwingUIDirector.jUIDirector.getUIComponent().publishObject(
+                    KmlImportedNotification.class, notification, false);
+            jPendingImportKmlRequestNotification = null;
+        } else if (VCCIDashBoard.jVCCIDashBoard != null) {
+            handleKmlCompletePrompt(response.getMessage(), response.isError());
+        }
+    }
+
+    @Override
+    public void exportComplete(KMLExportResponse response) {
+        if (jPendingExportKmlRequestNotification != null) {
+            // Send a KmlExportedNotification as a response to the ExportKmlRequestNotification.
+            // This is likely going to wringer (VCCI does not subscribe to this).
+            KmlExportedNotification notification = new KmlExportedNotification(
+                    response.getFile().getAbsolutePath(),
+                    response.getMessage(),
+                    response.getError());
+            ParadigmSwingUIDirector.jUIDirector.getUIComponent().publishObject(
+                    KmlExportedNotification.class, notification, false);
+            jPendingExportKmlRequestNotification = null;
+        } else if (VCCIDashBoard.jVCCIDashBoard != null) {
+            handleKmlCompletePrompt(response.getMessage(), response.getError());
+        }
+    }
+
+    private void handleKmlCompletePrompt(String message, boolean error) {
+        OptionsPane.PromptType promptType;
+        if (error) {
+            promptType = OptionsPane.PromptType.PROMPT_OK_ERROR;
+        } else {
+            promptType = OptionsPane.PromptType.PROMPT_OK_INFORMATION;
+        }
+        VCCIDashBoard.jVCCIDashBoard.optionPaneRequest(promptType, message);
+    }
+
+    public ArrayList<MilitaryMapElement> getMapElements() {
+        ArrayList<MilitaryMapElement> elements = new ArrayList();
+        if (jVCCICursitPanel != null) {
+            HashMap<String, IconHolder> icons =
+                    jVCCICursitPanel.getMapDisplayPanel().getMapElementHash();
+            for (IconHolder h : icons.values()) {
+                if (h.getMainElement() != null & h.getMainElement() instanceof MilitaryMapElement) {
+                    elements.add((MilitaryMapElement) h.getMainElement());
+                }
+            }
+        }
+        return elements;
+    }
+
+    @Override
+    public void processNotification(BTO obj) {
+        if (obj instanceof ObjectItemCreateNotification) {
+            DataBank.jDataBank.processNotification(obj);
+        } else if (obj instanceof GContext gContext) {
+            checkAddContext(gContext);
+            DataBank.jDataBank.processNotification(obj);
+        } else if (obj instanceof DMetricsTimeFormats) {
+            jStatusBar.sendTimeFormatsRequest();
+        }
+    }
+
+    @Override
+    public boolean isDeactivated() {
+        return false;
+    }
+
+    @Override
+    public void setIsDeactivated(boolean val) {
+    }
+
+    // --- IDDaySettable
+    @Override
+    public void setDDayOffset(long offset) {
+        MapDisplayPanel panel = MapDisplayPanel.jMapDisplayPanel;
+        if (panel != null) {
+            panel.setDDayOffset(offset);
+        }
+
+    }
+
+    @Override
+    public void setExerciseDDayOffset(int day, int hour, int minute, int second) {
+        MapDisplayPanel panel = MapDisplayPanel.jMapDisplayPanel;
+        if (panel != null) {
+            panel.setExerciseDDayOffset(day, hour, minute, second);
+        }
+    }
+}
