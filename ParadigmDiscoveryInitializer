@@ -1,0 +1,43 @@
+package com.calian.aicore;
+
+import com.calian.paradigm.service.aiservice.AIService;
+import io.micronaut.context.annotation.Context;
+import jakarta.annotation.PostConstruct;
+import jakarta.annotation.PreDestroy;
+
+@Context
+public class ParadigmDiscoveryInitializer {
+
+    private final ParadigmAgentStore store;
+
+    public ParadigmDiscoveryInitializer(
+            ParadigmAgentStore store) {
+
+        this.store = store;
+    }
+
+    @PostConstruct
+    public void initialize() {
+
+        AIService.setAgentDiscoveryListener(
+            commands -> {
+                store.acceptCommands(commands);
+
+                System.out.println(
+                    "PARADIGM DISCOVERY: Received "
+                    + commands.size()
+                    + " command entries"
+                );
+            }
+        );
+
+        System.out.println(
+            "PARADIGM DISCOVERY: Listener registered"
+        );
+    }
+
+    @PreDestroy
+    public void shutdown() {
+        AIService.setAgentDiscoveryListener(null);
+    }
+}
