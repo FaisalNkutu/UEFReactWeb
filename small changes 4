@@ -1,0 +1,40 @@
+private final String aiCoreRegistryUrl = System.getenv("AICORE_REGISTRY_URL");
+
+Replace it with:
+private final String aiCoreRegistryUrl =
+        System.getenv("AICORE_REGISTRY_URL") == null
+        ? "http://127.0.0.1:9801/api/ai-core/agents"
+        : System.getenv("AICORE_REGISTRY_URL");
+
+This ensures the chatbot automatically connects to AI Core on port 9801.
+Step 2 — Update AICoreHttpDiscovery.java
+Your working endpoint returns the agents as a JSON object:
+{
+  "source": "calian-ai-core",
+  "agents": {
+    "DBAgent": "http://127.0.0.1:15044/dbAgent",
+    "Dice Agent": "http://localhost:11000"
+  }
+}
+
+However, the existing discovery code handles an array of agents or a separate agentURLs object. It does not handle this format.
+
+Inside discover(), find:
+JsonNode agents = root.path("agents");
+if (agents.isArray()) {
+
+Replace those two lines with:
+JsonNode agents = root.path("agents");
+
+if (agents.isObject()) {
+    agents.fields().forEachRemaining(entry -> {
+        String name = entry.getKey();
+        String endpoint = entry.getValue().asText("");
+
+        if (!name.isBlank()) {
+            commands.put(name, List.of(name));
+            urls.put(name, endpoint);
+        }
+    });
+
+} else if (agents.isArray()) {
