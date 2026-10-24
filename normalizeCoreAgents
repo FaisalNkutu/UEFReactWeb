@@ -1,0 +1,15 @@
+export function normalizeCoreAgents(payload:any):Agent[]{
+
+Immediately after that opening line, insert:
+ if (payload?.agents &&
+     typeof payload.agents === 'object' &&
+     !Array.isArray(payload.agents)) {
+
+   return Object.entries(payload.agents).map(([name, url]) => ({
+     id: name,
+     name,
+     type: 'aicore' as const,
+     endpoint: String(url ?? ''),
+     commands: []
+   }));
+ }
