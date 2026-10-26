@@ -13,3 +13,6 @@ Immediately after that opening line, insert:
      commands: []
    }));
  }
+Get-ChildItem . -Recurse -File -Include *.ts,*.tsx |
+    Where-Object { $_.FullName -notmatch 'node_modules' } |
+    Select-String "Waiting for Paradigm discovery callback"
