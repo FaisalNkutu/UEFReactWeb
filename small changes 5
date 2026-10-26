@@ -16,3 +16,6 @@ Immediately after that opening line, insert:
 Get-ChildItem . -Recurse -File -Include *.ts,*.tsx |
     Where-Object { $_.FullName -notmatch 'node_modules' } |
     Select-String "Waiting for Paradigm discovery callback"
+
+
+$body = @{message="Translate Good Morning into French";agents=@("translation-agent","Dice Agent","SpeechAgent","DBAgent","structuredtext-agent")} | ConvertTo-Json -Depth 10; Invoke-RestMethod -Uri "http://127.0.0.1:9999/router/select" -Method POST -ContentType "application/json" -Body $body
